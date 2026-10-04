@@ -22,7 +22,6 @@ Build your hopping route. Track crowd updates. Share photos. Navigate with ease.
 
 <br>
 
-<!-- Add your actual hero image at docs/images/pandalquest-hero.png -->
 <img src="docs/images/pandalquest-hero.png" alt="PandalQuest" width="900"/>
 
 <br>
