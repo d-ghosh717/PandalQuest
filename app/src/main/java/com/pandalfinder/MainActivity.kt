@@ -16,7 +16,9 @@ import android.util.Log
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -138,6 +140,40 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rainReportRepo: RainReportRepository
     private var isResolvingLocationSettings = false
     private var lastLocationPromptTime = 0L
+
+    private val locationPrefs by lazy {
+        getSharedPreferences("pandalquest_location_prefs", Context.MODE_PRIVATE)
+    }
+
+    private var hasRequestedLocationPermission: Boolean
+        get() = locationPrefs.getBoolean(KEY_HAS_REQUESTED_LOCATION_PERMISSION, false)
+        set(value) = locationPrefs.edit().putBoolean(KEY_HAS_REQUESTED_LOCATION_PERMISSION, value).apply()
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: (
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: (
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+        val anyGranted = fineGranted || coarseGranted
+
+        Log.d(LOCATION_TAG, "fine=$fineGranted")
+        Log.d(LOCATION_TAG, "coarse=$coarseGranted")
+        Log.d(LOCATION_TAG, "permission result: fine=$fineGranted, coarse=$coarseGranted, anyGranted=$anyGranted")
+
+        if (anyGranted) {
+            Log.d(LOCATION_TAG, "permission granted")
+            Log.d(LOCATION_TAG, "checking device location services")
+            dismissLocationOffBanner()
+            checkLocationSettingsAndStart(explicitUserAction = true)
+        } else {
+            Log.d(LOCATION_TAG, "permission denied")
+            handleLocationPermissionDenied()
+        }
+    }
 
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingUploadPandalId: String? = null
@@ -787,7 +823,7 @@ class MainActivity : AppCompatActivity() {
         navMyPandalText = findViewById(R.id.navMyPandalText)
 
         results.layoutManager = LinearLayoutManager(this)
-        allowButton.setOnClickListener { requestLocationPermission() }
+        allowButton.setOnClickListener { requestLocationPermission(isExplicitUserAction = true) }
 
         setupFilterPills()
         setupActionButtons()
@@ -961,7 +997,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleMyLocationClick() {
         if (!hasLocation()) {
-            requestLocationPermission()
+            requestLocationPermission(isExplicitUserAction = true)
             return
         }
 
@@ -1001,7 +1037,7 @@ class MainActivity : AppCompatActivity() {
                 }
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission missing: ${e.message}", e)
-            requestLocationPermission()
+            requestLocationPermission(isExplicitUserAction = true)
         }
     }
 
@@ -1393,17 +1429,26 @@ class MainActivity : AppCompatActivity() {
         onSuccess: (() -> Unit)? = null
     ) {
         if (!hasLocation()) {
-            if (explicitUserAction) {
-                if (isLocationPermissionPermanentlyDenied()) {
-                    showPermanentPermissionDeniedDialog()
-                } else {
-                    requestLocationPermission()
-                }
+            val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            Log.d(LOCATION_TAG, "permission before request = NOT_GRANTED (fine=$hasFine, coarse=$hasCoarse)")
+
+            if (!hasRequestedLocationPermission) {
+                // First launch / fresh install: request runtime permission immediately (shows native system dialog)
+                Log.d(LOCATION_TAG, "requesting runtime location permission")
+                requestLocationPermission(isExplicitUserAction = explicitUserAction)
+            } else if (isLocationPermissionPermanentlyDenied()) {
+                Log.d(LOCATION_TAG, "permission permanently denied -> showing Settings UI")
+                showPermanentPermissionDeniedDialog()
             } else {
-                showLocationExplanation()
+                Log.d(LOCATION_TAG, "permission temporarily denied -> showing Try Again UI")
+                showLocationTryAgainBanner()
             }
             return
         }
+
+        Log.d(LOCATION_TAG, "permission granted")
+        Log.d(LOCATION_TAG, "checking device location services")
 
         val request = com.google.android.gms.location.LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
             .setMinUpdateDistanceMeters(10f)
@@ -1416,13 +1461,18 @@ class MainActivity : AppCompatActivity() {
         val client = LocationServices.getSettingsClient(this)
         client.checkLocationSettings(builder.build())
             .addOnSuccessListener {
+                Log.d(LOCATION_TAG, "location services are enabled")
                 isResolvingLocationSettings = false
                 requestNearby()
                 dismissLocationOffBanner()
+                if (filterShowToilets) {
+                    fetchAndDisplayToilets()
+                }
                 onSuccess?.invoke()
             }
             .addOnFailureListener { exception ->
                 if (exception is com.google.android.gms.common.api.ResolvableApiException) {
+                    Log.d(LOCATION_TAG, "location services disabled; SettingsClient resolution required")
                     val now = System.currentTimeMillis()
                     if (explicitUserAction || (!isResolvingLocationSettings && (now - lastLocationPromptTime > 15_000L))) {
                         lastLocationPromptTime = now
@@ -1437,17 +1487,30 @@ class MainActivity : AppCompatActivity() {
                         showLocationOffBanner()
                     }
                 } else {
+                    Log.w(LOCATION_TAG, "location services check failed: ${exception.message}")
                     showLocationOffBanner()
                 }
             }
     }
 
     private fun isLocationPermissionPermanentlyDenied(): Boolean {
-        val fineDenied = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-        val coarseDenied = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
-        val shouldShowRationale = androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
-                androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-        return (fineDenied && coarseDenied) && !shouldShowRationale
+        val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
+                ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+        return checkPermanentDenial(
+            hasPermission = hasLocation(),
+            hasRequestedBefore = hasRequestedLocationPermission,
+            shouldShowRationale = shouldShowRationale
+        )
+    }
+
+    private fun handleLocationPermissionDenied() {
+        if (isLocationPermissionPermanentlyDenied()) {
+            Log.d(LOCATION_TAG, "permission permanently denied after request -> showing Settings UI")
+            showPermanentPermissionDeniedDialog()
+        } else {
+            Log.d(LOCATION_TAG, "permission temporarily denied after request -> showing Try Again UI")
+            showLocationTryAgainBanner()
+        }
     }
 
     private fun showPermanentPermissionDeniedDialog() {
@@ -1465,6 +1528,18 @@ class MainActivity : AppCompatActivity() {
         statusCard.visibility = View.VISIBLE
     }
 
+    private fun showLocationTryAgainBanner() {
+        statusTitle.text = getString(R.string.location_explanation_title)
+        statusMessage.text = "Location is needed for nearby pandals, routes and navigation."
+        allowButton.text = "Try Again"
+        allowButton.visibility = View.VISIBLE
+        allowButton.setOnClickListener {
+            requestLocationPermission(isExplicitUserAction = true)
+        }
+        statusCard.visibility = View.VISIBLE
+        renderMarkers(pandals.all(), emptyList())
+    }
+
     private fun showLocationOffBanner() {
         statusTitle.text = "Location is turned off"
         statusMessage.text = "Location is off. Turn on Location to use nearby features."
@@ -1478,50 +1553,70 @@ class MainActivity : AppCompatActivity() {
 
     private fun dismissLocationOffBanner() {
         val title = statusTitle.text?.toString().orEmpty()
+        val msg = statusMessage.text?.toString().orEmpty()
         if (title.contains("Location is turned off", ignoreCase = true) ||
-            title.contains("Location permission is required", ignoreCase = true)
+            title.contains("Location permission is required", ignoreCase = true) ||
+            title.contains("Find pandals around you", ignoreCase = true) ||
+            msg.contains("Location is needed", ignoreCase = true) ||
+            msg.contains("Location permission was denied", ignoreCase = true)
         ) {
             statusCard.visibility = View.GONE
         }
+    }
+
+    private fun dismissLocationPermissionBanners() {
+        dismissLocationOffBanner()
     }
 
     private fun showLocationExplanation() {
         if (hasLocation()) {
             checkLocationSettingsAndStart(explicitUserAction = false)
         } else {
-            statusTitle.text = getString(R.string.location_explanation_title)
-            statusMessage.text = getString(R.string.location_explanation_body)
-            allowButton.text = getString(R.string.location_allow)
-            allowButton.visibility = View.VISIBLE
-            allowButton.setOnClickListener {
-                checkLocationSettingsAndStart(explicitUserAction = true)
-            }
-            renderMarkers(pandals.all(), emptyList())
+            showLocationTryAgainBanner()
         }
     }
 
-    private fun requestLocationPermission() = requestPermissions(
-        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-        REQUEST_LOCATION
-    )
+    private fun requestLocationPermission(isExplicitUserAction: Boolean = false) {
+        val fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasPerm = fineGranted || coarseGranted
+
+        Log.d(LOCATION_TAG, "permission state before request = ${if (hasPerm) "GRANTED" else "NOT_GRANTED"} (fine=$fineGranted, coarse=$coarseGranted)")
+
+        if (hasPerm) {
+            dismissLocationPermissionBanners()
+            checkLocationSettingsAndStart(explicitUserAction = isExplicitUserAction)
+            return
+        }
+
+        if (isLocationPermissionPermanentlyDenied()) {
+            Log.d(LOCATION_TAG, "permission is permanently denied -> showing Settings UI")
+            showPermanentPermissionDeniedDialog()
+            return
+        }
+
+        Log.d(LOCATION_TAG, "requesting runtime location permission")
+        hasRequestedLocationPermission = true
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, grants: IntArray) {
         super.onRequestPermissionsResult(code, permissions, grants)
         if (code == REQUEST_LOCATION) {
-            if (hasLocation()) {
+            val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val anyGranted = hasFine || hasCoarse
+            Log.d(LOCATION_TAG, "onRequestPermissionsResult: fine=$hasFine, coarse=$hasCoarse, anyGranted=$anyGranted")
+            if (anyGranted) {
+                dismissLocationPermissionBanners()
                 checkLocationSettingsAndStart(explicitUserAction = true)
             } else {
-                if (isLocationPermissionPermanentlyDenied()) {
-                    showPermanentPermissionDeniedDialog()
-                } else {
-                    statusTitle.text = getString(R.string.location_denied_title)
-                    statusMessage.text = getString(R.string.location_denied_body)
-                    allowButton.text = getString(R.string.location_allow)
-                    allowButton.visibility = View.VISIBLE
-                    allowButton.setOnClickListener {
-                        checkLocationSettingsAndStart(explicitUserAction = true)
-                    }
-                }
+                handleLocationPermissionDenied()
             }
         }
     }
@@ -2560,7 +2655,7 @@ class MainActivity : AppCompatActivity() {
                 val userLoc = location
                 if (userLoc == null || !isValidCoordinate(userLoc.latitude, userLoc.longitude)) {
                     Toast.makeText(this, "Acquiring GPS location... Please enable location to report crowd.", Toast.LENGTH_SHORT).show()
-                    requestLocationPermission()
+                    requestLocationPermission(isExplicitUserAction = true)
                     return@animateButtonPress
                 }
 
@@ -2984,7 +3079,7 @@ class MainActivity : AppCompatActivity() {
         val userLoc = location
         if (userLoc == null) {
             Toast.makeText(this, "Current GPS location required for Nearby mode", Toast.LENGTH_SHORT).show()
-            requestLocationPermission()
+            requestLocationPermission(isExplicitUserAction = true)
             return
         }
 
@@ -3947,8 +4042,20 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "PandalFinderMain"
+        const val LOCATION_TAG = "PandalQuest-Location"
+        const val KEY_HAS_REQUESTED_LOCATION_PERMISSION = "has_requested_location_permission"
         const val REQUEST_LOCATION = 1001
         const val REQUEST_CHECK_SETTINGS = 1002
+
+        fun checkPermanentDenial(
+            hasPermission: Boolean,
+            hasRequestedBefore: Boolean,
+            shouldShowRationale: Boolean
+        ): Boolean {
+            if (hasPermission) return false
+            if (!hasRequestedBefore) return false
+            return !shouldShowRationale
+        }
 
         fun isValidCoordinate(lat: Double, lng: Double): Boolean =
             !lat.isNaN() && !lat.isInfinite() && !lng.isNaN() && !lng.isInfinite() &&

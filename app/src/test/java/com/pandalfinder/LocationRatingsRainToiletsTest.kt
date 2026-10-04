@@ -44,9 +44,15 @@ class LocationRatingsRainToiletsTest {
 
     @Test
     fun test1_permissionGrantedAndGpsEnabled() {
+        val isPermanent = MainActivity.checkPermanentDenial(
+            hasPermission = true,
+            hasRequestedBefore = true,
+            shouldShowRationale = false
+        )
+        assertFalse(isPermanent)
         val state = evaluateLocationState(
             hasPermission = true,
-            isPermanentlyDenied = false,
+            isPermanentlyDenied = isPermanent,
             isGpsEnabled = true
         )
         assertEquals(AppLocationState.NORMAL, state)
@@ -54,43 +60,82 @@ class LocationRatingsRainToiletsTest {
 
     @Test
     fun test2_permissionGrantedAndGpsDisabled() {
+        val isPermanent = MainActivity.checkPermanentDenial(
+            hasPermission = true,
+            hasRequestedBefore = true,
+            shouldShowRationale = false
+        )
+        assertFalse(isPermanent)
         val state = evaluateLocationState(
             hasPermission = true,
-            isPermanentlyDenied = false,
+            isPermanentlyDenied = isPermanent,
             isGpsEnabled = false
         )
         assertEquals(AppLocationState.LOCATION_SERVICES_REQUIRED, state)
     }
 
     @Test
-    fun test3_locationPermissionDenied() {
+    fun test3_freshInstall_firstPermissionRequest() {
+        // On fresh install, permission not granted, hasRequestedBefore is FALSE, shouldShowRationale is FALSE
+        // MUST NOT be treated as permanently denied!
+        val isPermanent = MainActivity.checkPermanentDenial(
+            hasPermission = false,
+            hasRequestedBefore = false,
+            shouldShowRationale = false
+        )
+        assertFalse("Fresh install must never be treated as permanently denied", isPermanent)
         val state = evaluateLocationState(
             hasPermission = false,
-            isPermanentlyDenied = false,
+            isPermanentlyDenied = isPermanent,
             isGpsEnabled = true
         )
         assertEquals(AppLocationState.PERMISSION_REQUIRED, state)
     }
 
     @Test
-    fun test4_permanentPermissionDenial() {
+    fun test4_firstDenial_tryAgainUI() {
+        // First denial by user (Don't allow): hasRequestedBefore is TRUE, shouldShowRationale is TRUE
+        // Shows Try Again UI, NOT Settings
+        val isPermanent = MainActivity.checkPermanentDenial(
+            hasPermission = false,
+            hasRequestedBefore = true,
+            shouldShowRationale = true
+        )
+        assertFalse("First denial should not be permanently denied", isPermanent)
         val state = evaluateLocationState(
             hasPermission = false,
-            isPermanentlyDenied = true,
+            isPermanentlyDenied = isPermanent,
+            isGpsEnabled = true
+        )
+        assertEquals(AppLocationState.PERMISSION_REQUIRED, state)
+    }
+
+    @Test
+    fun test5_permanentPermissionDenial_settingsUI() {
+        // Permanently denied (Don't ask again / multiple denials): hasRequestedBefore is TRUE, shouldShowRationale is FALSE
+        val isPermanent = MainActivity.checkPermanentDenial(
+            hasPermission = false,
+            hasRequestedBefore = true,
+            shouldShowRationale = false
+        )
+        assertTrue("Subsequent denial without rationale should be permanently denied", isPermanent)
+        val state = evaluateLocationState(
+            hasPermission = false,
+            isPermanentlyDenied = isPermanent,
             isGpsEnabled = true
         )
         assertEquals(AppLocationState.PERMANENTLY_DENIED, state)
     }
 
     @Test
-    fun test5_resolutionDialogFlow() {
+    fun test6_resolutionDialogFlow() {
         // When location settings check fails with resolvable exception,
         // client triggers startResolutionForResult with request code 1002
         assertEquals(1002, MainActivity.REQUEST_CHECK_SETTINGS)
     }
 
     @Test
-    fun test6_noRepeatedLocationPromptSpam() {
+    fun test7_noRepeatedLocationPromptSpam() {
         val cooldownMillis = 10_000L
         var lastPromptTime = 100_000L
 

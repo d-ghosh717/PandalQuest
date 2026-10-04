@@ -1307,26 +1307,28 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <!-- Logo Container in Liquid Glass Lens with Specular Sweep -->
+            <!-- Logo Container with Specular Sweep -->
             <FrameLayout
                 android:id="@+id/launchLogoLens"
-                android:layout_width="84dp"
-                android:layout_height="84dp"
-                android:background="@drawable/bg_launch_logo_lens">
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:background="@android:color/transparent">
 
                 <ImageView
                     android:id="@+id/launchLogoIcon"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
+                    android:layout_width="96dp"
+                    android:layout_height="96dp"
                     android:layout_gravity="center"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"
                     android:contentDescription="PandalQuest Logo"
                     android:src="@drawable/ic_splash_pandal_logo" />
 
                 <!-- Specular light sweep across glass lens -->
                 <View
                     android:id="@+id/launchSpecularSweep"
-                    android:layout_width="32dp"
-                    android:layout_height="84dp"
+                    android:layout_width="36dp"
+                    android:layout_height="96dp"
                     android:layout_gravity="center_vertical"
                     android:background="@drawable/bg_specular_sweep"
                     android:visibility="invisible" />

@@ -1,133 +1,306 @@
+<div align="center">
+
 # 🛕 PandalQuest
 
 ### Your Real-Time Durga Puja Companion for Kolkata
 
-> **Discover pandals. Find metro stations. Locate nearby toilets. Build
-> your hopping route. Track crowd updates. Share photos. Navigate with
-> ease.**
+**Discover pandals. Find metro stations. Locate nearby toilets.  
+Build your hopping route. Track crowd updates. Share photos. Navigate with ease.**
 
-**PandalQuest v2.1.0** is a modern Android application built for Durga
-Puja pandal hopping across Kolkata and Howrah.
+<br>
 
-It combines live GPS, an interactive festival map, multi-provider road
-routing (Google Routes + OpenRouteService fallback), Google Maps navigation,
-Firebase-powered community updates, Supabase photo sharing, Google Places public toilet
-discovery, metro discovery, personal saved/visited collections, and a smarter
-multi-stop hopping planner into one map-first festival experience.
+[![Android](https://img.shields.io/badge/Platform-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://www.android.com/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2C2C2C?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=111111)](https://firebase.google.com/)
+[![Google%20Maps](https://img.shields.io/badge/Google%20Maps-EA4335?style=for-the-badge&logo=googlemaps&logoColor=white)](https://mapsplatform.google.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-1C1C1C?style=for-the-badge&logo=supabase&logoColor=3ECF8E)](https://supabase.com/)
+[![Release](https://img.shields.io/badge/Release-v2.1.0-E52B00?style=for-the-badge)](#-whats-new-in-v210)
 
-------------------------------------------------------------------------
+<br>
 
-# 🚀 What’s New in v2.1.0 — Smarter Routes & Nearby Toilets
+> **Pandal hopping, rebuilt around live location, real routes and community data.**
 
-Version 2.1.0 brings major intelligence improvements to itinerary planning,
-live toilet discovery via Google Places, and resilience to road-route calculations:
+<br>
 
-### 🧠 Smarter Auto Plan & Metro Decisions
+<!-- Add your actual hero image at docs/images/pandalquest-hero.png -->
+<img src="docs/images/pandalquest-hero.png" alt="PandalQuest" width="900"/>
 
-- **Complete Journey Time Comparison:** The Auto Plan now computes the full
-  journey time ($Walk + Metro + Wait/Transfer + Walk$) vs. direct road/walking time.
-- **5-Minute Minimum Time Saving Threshold:** Metro transit is only suggested
-  when it saves at least 5 minutes over the direct route.
-- **Detour Protection:** Rejects unreasonable walking detours, backtracking,
-  or unconnected lines.
-- **Pure Itinerary Stops:** Metro stations are treated as transport legs,
-  never polluted as standalone pandal hopping stops.
+<br>
 
-### 🛣️ OpenRouteService (HeiGIT) Road-Routing Fallback
+### 🗺️ Discover &nbsp; • &nbsp; 🧠 Plan &nbsp; • &nbsp; 📍 Navigate &nbsp; • &nbsp; 👥 Contribute
 
-- **Zero Downtime Routing:** When Google Routes is unavailable or unbilled,
-  the app seamlessly falls back to OpenRouteService directions (`https://api.heigit.org`).
-- **Real Route Distances:** Authentic driving, walking, and cycling route
-  distances (never fabricated Haversine estimates).
-- **In-Memory Caching & Rate-Limit Protection:** Smart 5-minute caching and
-  cooldown backoff.
+</div>
 
-------------------------------------------------------------------------
+---
 
-# 🚀 Core Features
+## ✨ Why PandalQuest?
 
-## 🗺️ Interactive Festival Map
+PandalQuest is a map-first Android application built for **Durga Puja pandal hopping across Kolkata and Howrah**.
 
-Explore Kolkata and Howrah through an interactive map containing real
-pandal locations.
+Instead of switching between maps, search, notes, weather and community updates, PandalQuest brings the festival experience into one place.
 
-Supported place types include:
+| 🛕 Discover | 🗺️ Navigate | 🧠 Plan | 👥 Contribute |
+|:---:|:---:|:---:|:---:|
+| Find real pandals | Real road routes | Multi-stop hopping | Crowd reports |
+| Metro discovery | Google Maps navigation | Road vs Metro decisions | Weather observations |
+| Nearby toilets | Live GPS | Reorder stops | Ratings & photos |
 
-- Pandals
-- Metro stations
-- Public toilets
-- Festival zones where reliable data is available
+---
 
-The map remains the primary interface.
+# 📱 App Showcase
 
-## 🔎 Universal Place Search
+<div align="center">
 
-Search across supported categories:
+| 🗺️ Festival Map | 🛕 Pandal Detail |
+|:---:|:---:|
+| <img src="docs/images/map.png" width="330"/> | <img src="docs/images/pandal-detail.png" width="330"/> |
 
-``` text
+| 🧭 Hopping | ❤️ My Pandal |
+|:---:|:---:|
+| <img src="docs/images/hopping.png" width="330"/> | <img src="docs/images/my-pandal.png" width="330"/> |
+
+</div>
+
+> Put your real app screenshots in `docs/images/` using these filenames.
+
+---
+
+# 🧭 The PandalQuest Experience
+
+## 01 — Discover
+
+### 🗺️ One Festival Map
+
+Explore Kolkata and Howrah through a live interactive map.
+
+**Map layers**
+
+- 🛕 Pandals
+- 🚇 Metro stations
+- 🚻 Public toilets
+- 🟧 Festival zones where reliable data is available
+
+### 🔎 Universal Search
+
+Search across:
+
+```text
 Pandal names
 Areas / localities
 Metro stations
 Public toilets
 ```
 
-## 🎛️ Independent Map Filters
+### 🎛️ Independent Filters
 
-``` text
-[PANDALS] [METRO] [TOILETS]
+```text
+[PANDALS]   [METRO]   [TOILETS]   [ZONES]
 ```
 
-Filters can be combined freely, including showing all three
-simultaneously.
+Filters can be combined without forcing unrelated markers onto the map.
 
-## 🛕 Pandal Discovery
+---
 
-A pandal detail view can provide:
+## 02 — Explore
 
-- Pandal name
-- Area / location
-- Road distance
-- Walking distance
-- Two-wheeler distance
-- Driving distance
-- Current weather
-- Community crowd level
-- Nearest metro station
-- Community photos
-- Saved status
-- Visited status
-- Add to Hopping
-- Google Maps navigation
+### 🛕 Everything You Need at a Pandal
 
-------------------------------------------------------------------------
+| | |
+|---|---|
+| 📍 Location | 🚗 Road distance |
+| 🚶 Walking route | 🏍️ Two-wheeler route |
+| 🌦️ Weather | 👥 Crowd level |
+| 🚇 Nearest metro | ⭐ Community rating |
+| 📸 Community photos | ❤️ Saved status |
+| 🛂 Pandal Passport | 🧭 Navigation |
+| ➕ Add to Hopping | |
+
+---
+
+## 03 — Plan
+
+# 🧠 Smart Hopping
+
+Build a personalized festival itinerary containing:
+
+```text
+Pandal
+   ↓
+Metro Station
+   ↓
+Public Toilet
+   ↓
+Pandal
+   ↓
+Pandal
+```
+
+### Auto Plan
+
+PandalQuest compares the **complete journey**, not just individual transport distances.
+
+```text
+                    📍 DEVICE GPS
+                         │
+                 ┌───────┴───────┐
+                 │               │
+                 ▼               ▼
+          🚗 Direct Route   🚇 Metro Route
+                 │               │
+                 │        Walk + Metro + Wait
+                 │          + Transfer + Walk
+                 │               │
+                 └───────┬───────┘
+                         ▼
+                  Compare Journey
+                       Times
+                         │
+                         ▼
+                  Choose Better Route
+```
+
+Metro is considered only when the complete journey provides a meaningful advantage.
+
+### Hopping Controls
+
+- Add places
+- Remove places
+- Reorder stops
+- Prevent duplicate stops
+- Calculate route information
+- Start navigation
+- Persist the itinerary across app restarts
+
+---
+
+# 🚗 Real Routing
+
+PandalQuest uses a resilient multi-provider routing pipeline.
+
+```text
+                    📍 DEVICE GPS
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │   Google Routes API │
+              │       PRIMARY       │
+              └──────────┬──────────┘
+                         │
+                    Route success?
+                    /           \
+                  YES            NO
+                   │              │
+                   ▼              ▼
+             Google Route    OpenRouteService
+                                HeiGIT
+                                  │
+                             Route success?
+                              /         \
+                            YES          NO
+                             │            │
+                             ▼            ▼
+                       Real Route     Route
+                         Result     Unavailable
+```
+
+| Mode | Google | OpenRouteService |
+|---|---|---|
+| 🚗 Driving | `DRIVE` | `driving-car` |
+| 🚶 Walking | `WALK` | `foot-walking` |
+| 🏍️ Two-wheeler / Cycling | `TWO_WHEELER` | `cycling-regular` |
+
+> **No fabricated distances.** If both routing providers fail, the UI shows `Route unavailable`.
+
+---
+
+# 👥 Community Layer
+
+PandalQuest becomes more useful as visitors contribute.
+
+```text
+                         PANDALQUEST
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+          🛕 PANDAL        📍 LOCATION      👥 COMMUNITY
+                                              │
+                                    ┌─────────┼─────────┐
+                                    ▼         ▼         ▼
+                                  Crowd    Weather   Rating
+                                    │         │         │
+                                    └─────────┼─────────┘
+                                              ▼
+                                         📸 Photos
+```
+
+## 👥 Crowd Reports
+
+Visitors can report crowd intensity from **1–10**.
+
+| Level | Meaning |
+|:---:|---|
+| `1–2` | Empty |
+| `3–4` | Light |
+| `5–6` | Moderate |
+| `7–8` | Very busy |
+| `9` | Extremely busy |
+| `10` | Packed |
+
+## 🌦️ Weather Observations
+
+```text
+No rain
+Drizzle
+Raining
+Heavy rain
+```
+
+Community observations represent local conditions and become stale after the configured validity period.
+
+## ⭐ Community Ratings
+
+PandalQuest includes community ratings for individual pandals.
+
+Users can submit a **1–5 star rating**, while the Pandal Detail screen displays the community average.
+
+```text
+Kolkata     4 ⭐
+```
+
+The rating is separate from Google Maps.
+
+---
 
 # 📸 Community Pandal Photos
 
-Users can add photographs from the device gallery or camera.
-
-Upload flow:
-
-``` text
+```text
 Pandal Detail
-     ↓
-Add Photo
-     ↓
+      │
+      ▼
+  Add Photo
+      │
+      ▼
 Camera / Gallery
-     ↓
-Preview
-     ↓
-Upload
-     ↓
-Firebase Cloud Storage
-     ↓
-Firestore metadata
-     ↓
-Community Gallery
+      │
+      ▼
+   Preview
+      │
+      ▼
+   Upload
+      │
+      ├───────────────┐
+      ▼               ▼
+ Supabase         Firestore
+ Storage          Metadata
+      │               │
+      └───────┬───────┘
+              ▼
+       Community Gallery
 ```
 
-Firestore stores metadata such as:
+Photo metadata includes:
 
-``` text
+```text
 pandalId
 storagePath
 downloadUrl
@@ -136,103 +309,7 @@ createdAt
 status
 ```
 
-Image binary data should remain in Cloud Storage rather than being
-stored directly in Firestore.
-
-Uploads should use appropriate file-size, content-type and Firebase
-Security Rules.
-
-------------------------------------------------------------------------
-
-# ❤️ My Pandal
-
-The bottom navigation is intentionally minimal:
-
-``` text
-[ Map ] [ Hopping ] [ My Pandal ]
-```
-
-### Saved
-
-Save pandals for later. Saved state persists across app restarts.
-
-### Pandal Passport
-
-Track pandals you have visited and your festival progress.
-
-------------------------------------------------------------------------
-
-# 🛣️ Hopping
-
-Create a personalized multi-stop itinerary containing pandals, metro
-stations and toilets.
-
-Example:
-
-``` text
-1. Pandal
-2. Metro Station
-3. Public Restroom
-4. Pandal
-```
-
-Users can:
-
-- Add places
-- Remove places
-- Reorder stops
-- Prevent duplicate stops
-- Calculate route information
-- Start navigation through Google Maps
-
-The itinerary persists across app restarts.
-
-------------------------------------------------------------------------
-
-# 🚗 Multi-Provider Road Routing (Google + OpenRouteService)
-
-The intended route flow uses a resilient fallback pipeline:
-
-``` text
-Current Device GPS
-        │
-        ▼
-Primary: Google Routes API (ComputeRoutes REST)
-        │
-        ├── Success ─────────► Return Google Route Result
-        │
-        └── Failure/Unbilled ─► Fallback: OpenRouteService (HeiGIT)
-                                    │
-                                    ├── Success ──► Return ORS Route Result
-                                    │
-                                    └── Failure ──► Display "Route unavailable"
-```
-
-### Supported Profiles:
-- **Driving / Car:** `RouteProfile.DRIVING` (Google: `DRIVE` / ORS: `driving-car`)
-- **Walking:** `RouteProfile.WALKING` (Google: `WALK` / ORS: `foot-walking`)
-- **Two-Wheeler / Cycling:** `RouteProfile.CYCLING` (Google: `TWO_WHEELER` / ORS: `cycling-regular`)
-
-### Configuration (`secrets.properties`):
-```properties
-# Primary: Google Routes API Key
-ROUTES_API_KEY=YOUR_GOOGLE_ROUTES_KEY_HERE
-
-# Fallback: OpenRouteService Key (HeiGIT)
-ORS_API_KEY=YOUR_OPENROUTESERVICE_KEY_HERE
-```
-
-> **Note on OpenRouteService API Host:**
-> OpenRouteService requests use the active HeiGIT endpoint:
-> `https://api.heigit.org/openrouteservice/v2/directions/{profile}`
-> The legacy `api.openrouteservice.org` is deprecated.
-> All coordinate requests follow the GeoJSON specification: `[longitude, latitude]`.
-
-Road-route information is never replaced with fabricated or straight-line
-Haversine values. If both providers fail or are unconfigured, the UI clearly
-displays `"Route unavailable"`.
-
-------------------------------------------------------------------------
+---
 
 # 🚇 Metro Discovery
 
@@ -243,11 +320,15 @@ Tap a metro station to view:
 - Add/remove from Hopping
 - Navigation
 
-## 🚻 Public Toilet Discovery
+Metro stations participate in the smart hopping planner as **transport legs rather than ordinary pandal stops**.
 
-Toilets are discovered using Google Places services.
+---
 
-Tap a toilet to view:
+# 🚻 Nearby Toilets
+
+Public toilets are discovered through **Google Places**.
+
+Each toilet can provide:
 
 - Restroom name
 - Address
@@ -255,184 +336,166 @@ Tap a toilet to view:
 - Add/remove from Hopping
 - Navigation
 
-Toilet locations should come from real place data rather than fabricated
-coordinates.
+PandalQuest is designed to use real place data instead of fabricated toilet coordinates.
 
-------------------------------------------------------------------------
-
-# 👥 Community Crowd Reports
-
-Visitors can report crowd intensity on a 1–10 scale.
-
-| Level | Meaning        |
-|-------|----------------|
-| 1–2   | Empty          |
-| 3–4   | Light          |
-| 5–6   | Moderate       |
-| 7–8   | Very busy      |
-| 9     | Extremely busy |
-| 10    | Packed         |
-
-The scale represents crowd intensity, not an exact number of people.
-
-Recent reports are stored through Firebase and can be synchronized to
-other users. Where contribution validation is enabled, only
-nearby/recent visitors can submit reports.
-
-> **Keep contributing to keep PandalQuest updated.**
-
-------------------------------------------------------------------------
-
-# 🌦️ Weather
-
-PandalQuest supports automatic weather information and community/local
-observations where implemented.
-
-Examples include:
-
-``` text
-No rain
-Drizzle
-Raining
-Heavy rain
-```
-
-Automatic weather should come from the configured weather source.
-Community observations should represent recent local conditions and
-become stale after the configured validity period.
-
-------------------------------------------------------------------------
+---
 
 # 📍 Live Location
 
-Device GPS is used for:
+Device GPS powers:
 
-- Nearby discovery
-- Distance calculations
-- Route origins
-- Metro distance
-- Toilet distance
-- Contribution eligibility
-- Navigation
-
-------------------------------------------------------------------------
-
-# 🗺️ Navigation
-
-Supported destinations can be handed off to Google Maps:
-
-``` text
-Pandal / Metro / Toilet
-          ↓
-      Navigation
-          ↓
-      Google Maps
+```text
+Nearby discovery
+      ↓
+Distance calculations
+      ↓
+Route origins
+      ↓
+Metro distance
+      ↓
+Toilet distance
+      ↓
+Contribution eligibility
+      ↓
+Navigation
 ```
 
-------------------------------------------------------------------------
+---
 
-# 🎨 Design
+# 🎨 Design System
 
-PandalQuest uses a visual identity inspired by Durga Puja and Kolkata.
+PandalQuest's visual identity is inspired by **Durga Puja, Kolkata and modern glass-based interfaces**.
 
-| Color           | Hex       |
-|-----------------|-----------|
-| Sindoor Red     | `#E52B00` |
-| Cream           | `#FFF5E3` |
-| Orange          | `#F97E04` |
-| Gold            | `#FBC222` |
-| Festival Yellow | `#FBEF00` |
-| Green           | `#45A701` |
+| Color | Hex |
+|:---|:---:|
+| 🔴 Sindoor Red | `#E52B00` |
+| 🤍 Cream | `#FFF5E3` |
+| 🟠 Orange | `#F97E04` |
+| 🟡 Gold | `#FBC222` |
+| 🟨 Festival Yellow | `#FBEF00` |
+| 🟢 Green | `#45A701` |
 
-The UI focuses on warm festival colors, modern Android design, readable
-typography, floating map controls, rounded surfaces, strong visual
-hierarchy and minimal navigation.
+**Visual language:** warm festival palette · Liquid Glass surfaces · floating map controls · rounded cards · strong typography · map-first navigation
 
-------------------------------------------------------------------------
+---
 
-# 🧭 App Structure
+# 🏗️ Architecture
 
-``` text
-                       PANDALFINDER
-                            │
-                            ▼
-                           MAP
-                            │
-             ┌──────────────┼──────────────┐
-             ▼              ▼              ▼
-          PANDALS         METRO          TOILETS
-             │              │              │
-             └──────────────┼──────────────┘
-                            ▼
-                       PLACE CARD
-                       /                               ▼           ▼
-                  HOPPING     NAVIGATION
-                     │             │
-                     ▼             ▼
-               MULTI-STOP      GOOGLE MAPS
-                   PLAN
-                     │
-          ┌──────────┴──────────┐
-          ▼                     ▼
-      MY PANDAL             COMMUNITY
-      /       \              /         \
-   SAVED    PASSPORT      CROWD      PHOTOS
+```text
+                         PANDALQUEST
+                              │
+                              ▼
+                       ┌────────────┐
+                       │    MAP     │
+                       └─────┬──────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+           PANDALS         METRO         TOILETS
+              │              │              │
+              └──────────────┼──────────────┘
+                             ▼
+                        PLACE DETAIL
+                             │
+                 ┌───────────┼───────────┐
+                 ▼           ▼           ▼
+              ROUTING     HOPPING    COMMUNITY
+                 │           │           │
+                 ▼           ▼           ▼
+             MAPS /       MULTI-STOP   CROWD
+             ROUTES         PLAN       WEATHER
+                                         RATING
+                                         PHOTOS
 ```
 
-------------------------------------------------------------------------
+---
 
 # 🧰 Tech Stack
 
 ### Android
-
-- Kotlin
-- Android SDK
-- Gradle
-- Google Play Services Location
-- Firebase
-- Cloud Firestore
-- Firebase Cloud Storage
+Kotlin · Android SDK · Gradle · Google Play Services Location
 
 ### Maps & Location
+Google Maps Platform · Google Routes API · Google Places API (New) · Google Maps navigation · Device GPS · MapLibre / OpenStreetMap where applicable
 
-- Google Maps Platform
-- Google Routes API
-- Google Places API / Places API (New)
-- Google Maps navigation
-- Device GPS / location services
+### Backend & Community
+Firebase Authentication · Cloud Firestore · Firebase Security Rules · Supabase Storage · Realtime listeners
 
-### Community Data
+### Routing
+Google Routes API · OpenRouteService / HeiGIT fallback
 
-- Firebase Firestore
-- Firebase Cloud Storage
-- Realtime listeners where required
+---
 
-------------------------------------------------------------------------
+# 🚀 What's New in v2.1.0
 
-# 🔥 Firebase Architecture
+### 🧠 Smarter Auto Plan
+- Complete journey-time comparison
+- Road vs Metro evaluation
+- 5-minute minimum metro advantage threshold
+- Detour protection
+- Metro treated as a transport leg
 
-Firebase is used for shared community information:
+### 🚗 Better Routing
+- Google Routes primary provider
+- OpenRouteService / HeiGIT fallback
+- Walking, cycling and driving routes
+- Short-term caching
+- Route-unavailable state instead of fabricated distances
 
-``` text
-Firestore
-├── Crowd Reports
-├── Weather / community observations
-├── Pandal photo metadata
-└── Other shared community data
+### 🚻 Nearby Toilets
+- Google Places discovery
+- Real nearby public toilet locations
+- Toilet detail cards
+- Navigation
+- Hopping integration
 
-Cloud Storage
-└── Pandal photographs
-```
+### 👥 Community
+- Crowd reports
+- Weather observations
+- Community ratings
+- Pandal photos
+- Firebase synchronization
 
-The core experience is designed without requiring traditional account
-creation.
+### 🧭 Hopping
+- Multi-stop itinerary
+- Mixed pandal / metro / toilet stops
+- Reordering
+- Duplicate-stop prevention
+- Persistent itinerary
 
-Production Firebase Security Rules should restrict writes and prevent
-users from modifying other users’ content.
+---
 
-------------------------------------------------------------------------
+# 📊 Feature Matrix
 
-# ⚙️ Setup
+| Feature | Status |
+|:---|:---:|
+| Live GPS | ✅ |
+| Interactive Festival Map | ✅ |
+| Pandal Discovery & Search | ✅ |
+| Metro Discovery | ✅ |
+| Universal Search | ✅ |
+| Independent Map Filters | ✅ |
+| Google Routes | ✅ |
+| OpenRouteService Fallback | ✅ |
+| Walking / Cycling / Driving Routes | ✅ |
+| Google Maps Navigation | ✅ |
+| Automatic & Community Weather | ✅ |
+| Community Crowd Reports | ✅ |
+| Community Ratings | ✅ |
+| Community Photos | ✅ |
+| Google Places Toilets | ✅ |
+| Hopping Itinerary | ✅ |
+| Mixed Pandal / Metro / Toilet Routes | ✅ |
+| Saved Pandals | ✅ |
+| Pandal Passport | ✅ |
+| My Pandal | ✅ |
+| Offline Core Map | 🚧 |
+| Festival Event Timings | 🚧 |
+| Advanced Accessibility Data | 🚧 |
+
+---
+
+# 📦 Setup
 
 ## Requirements
 
@@ -446,319 +509,93 @@ users from modifying other users’ content.
 
 ## Google Maps Platform
 
-The application uses:
+Required services:
 
-``` text
+```text
 Maps SDK for Android
 Routes API
 Places API (New)
 ```
 
-Required APIs must be enabled in the Google Cloud project.
+Configure API-key restrictions according to the actual request architecture.
 
-Configure API-key restrictions according to the actual Android and
-web-service request architecture.
+> **Never commit production API keys to GitHub.**
 
-**Never commit API keys to GitHub.**
+Use local configuration such as:
 
-Use secure local configuration such as:
-
-``` text
+```text
 local.properties
+secrets.properties
 ```
 
 ## Firebase
 
-Configure the Firebase Android project and enable the required services:
+Enable the required services:
 
-``` text
+```text
+Firebase Authentication
 Cloud Firestore
-Cloud Storage
+Firebase Security Rules
 ```
 
-Configure Firebase Security Rules before production use.
+---
 
-------------------------------------------------------------------------
-
-# 📱 Running the App
-
-### Configure Android SDK
-
-Set the SDK location in `local.properties`:
-
-``` properties
-sdk.dir=C:\Users\YourUsername\AppData\Local\Android\Sdk
-```
-
-### Enable USB Debugging
-
-``` text
-Settings
-→ Developer Options
-→ USB Debugging
-```
-
-Verify the device:
-
-``` bash
-adb devices
-```
+# 🛠️ Development
 
 ### Build
 
-Windows:
-
-``` powershell
-.\gradlew.bat assembleDebug
-```
-
-macOS / Linux:
-
-``` bash
+```bash
 ./gradlew assembleDebug
 ```
 
 ### Install
 
-``` bash
+```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-------------------------------------------------------------------------
+### Devices
 
-# 🧪 Development Workflow
-
-``` text
-VS Code
-   ↓
-Gradle CLI
-   ↓
-Debug APK
-   ↓
-ADB / USB Debugging
-   ↓
-Physical Android Device
-```
-
-Real-device testing is recommended for GPS, Maps, Routes, Places,
-camera/photo picker, Firebase synchronization and Google Maps
-navigation.
-
-------------------------------------------------------------------------
-
-# 🛠️ Useful Commands
-
-### Clean
-
-``` powershell
-.\gradlew.bat clean
-```
-
-### Build Debug APK
-
-``` powershell
-.\gradlew.bat assembleDebug
-```
-
-### Install
-
-``` powershell
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-```
-
-### Check Connected Devices
-
-``` powershell
+```bash
 adb devices
 ```
 
 ### Launch
 
-``` powershell
+```bash
 adb shell am start -n com.pandalfinder/.MainActivity
 ```
 
-### View Logs
+### Logs
 
-``` powershell
+```bash
 adb logcat
 ```
 
-------------------------------------------------------------------------
+---
 
-# 🧩 Troubleshooting
+# 🧪 Real Device Testing
 
-### Location isn’t updating
+Real-device testing is recommended for GPS, Maps, Routes, Places, camera/photo picker, Firebase synchronization, Google Maps navigation and location permissions.
 
-Check:
-
-- GPS is enabled
-- Location permission is granted
-- Google Play Services is available
-- Device location settings are enabled
-
-### Google Maps doesn’t open
-
-Make sure Google Maps or another supported mapping application is
-installed and the navigation destination is valid.
-
-### Routes are unavailable
-
-Check:
-
-- Routes API is enabled
-- API key is valid
-- Billing is configured where required
-- API-key restrictions match the actual request architecture
-- Origin coordinates are valid
-- Destination coordinates are valid
-- Device has internet access
-- Routes response parsing is correct
-
-Use Logcat to inspect the actual Google Routes error. Never replace a
-failed route with a fabricated distance.
-
-### Toilets aren’t appearing
-
-Check:
-
-- Places API (New) is enabled
-- API key allows the required Places functionality
-- Current Places implementation matches the enabled API
-- Location permission is available where required
-- Device has internet access
-
-### Firebase updates aren’t working
-
-Check:
-
-- Firebase configuration is present
-- Firestore is enabled
-- Cloud Storage is enabled
-- Firebase Security Rules permit the intended operation
-- Realtime listeners are attached correctly
-- Device has internet access
-- Logcat for Firebase exceptions
-
-### Community photos aren’t appearing
-
-Check:
-
-- Storage upload completed
-- Firestore metadata write completed
-- Storage path/download URL is valid
-- Firestore listener is active
-- Storage and Firestore rules allow the intended read
-- The image can be loaded by the device
-
-------------------------------------------------------------------------
-
-# 🗺️ Data Philosophy
-
-PandalQuest is designed around **real location and community data
-instead of fabricated values**.
-
-The application avoids:
-
-- Fake route distances
-- Fake toilet locations
-- Fake crowd values
-- Hardcoded current GPS positions
-- Map-center coordinates used as destinations
-- Artificial navigation routes
-- Fake community reports
-
-When a service cannot provide reliable information, the application
-should report that state instead of pretending that a value is accurate.
-
-------------------------------------------------------------------------
-
-# 🛡️ Privacy
-
-PandalQuest is designed to work without traditional account creation
-for its core experience.
-
-Location is primarily used for:
-
-``` text
-Nearby discovery
-Routing
-Navigation
-Contribution eligibility
-Distance calculations
-```
-
-Community contributions should use only the information necessary to
-associate a contribution with a place and validate/display the
-contribution.
-
-Uploaded photographs should use appropriate Firebase Storage and
-Firestore security controls.
-
-------------------------------------------------------------------------
+---
 
 # 🗺️ Roadmap
 
-## ✅ Completed / v2.1.0
-
-- [x] Live GPS location
-- [x] Interactive pandal map
-- [x] Pandal discovery
-- [x] Pandal search
-- [x] Metro discovery
-- [x] Universal place search
-- [x] Independent pandal/metro/toilet filters
-- [x] Multi-provider road routing (Google Routes + OpenRouteService)
-- [x] HeiGIT OpenRouteService fallback integration
-- [x] Smarter Auto Plan with total journey time evaluation & 5-min threshold
-- [x] Walking route distance
-- [x] Two-wheeler / cycling route distance
-- [x] Driving route distance
-- [x] Google Maps navigation
-- [x] Automatic weather
-- [x] Community weather reports
-- [x] Community crowd reports
-- [x] Nearby/recent visitor contribution validation
-- [x] Firebase Firestore integration
-- [x] Google Places toilet discovery
-- [x] Toilet detail cards
-- [x] Metro detail cards
-- [x] Hopping itinerary
-- [x] Mixed pandal/metro/toilet routes
-- [x] Stop reordering
-- [x] Duplicate-stop prevention
-- [x] Persistent hopping plan
-- [x] Saved pandals
-- [x] Pandal Passport
-- [x] My Pandal section
-- [x] Community pandal photos (multi-select + fullscreen viewer)
-- [x] Supabase Storage photo integration
-- [x] Realtime community data architecture
-- [x] Durga Puja visual identity (Liquid Glass system)
-- [x] v2.1.0 release
-
-## 🚧 Future Ideas
-
-- [ ] Festival/event timing information
+- [ ] Festival / event timing information
 - [ ] More detailed accessibility information
-- [ ] Offline map/core data support
+- [ ] Offline map / core data support
 - [ ] More community-generated festival information
 - [ ] Better photo moderation
-- [ ] Richer pandal information and verified details
+- [ ] Richer pandal information
+- [ ] Verified festival details
 
-------------------------------------------------------------------------
+---
 
 # 🤝 Contributing
 
-Contributions are welcome.
-
-``` bash
+```bash
 git checkout -b feature/your-feature
-```
-
-Make changes and test them on a physical Android device.
-
-``` bash
 git add .
 git commit -m "Add your feature"
 git push origin feature/your-feature
@@ -766,30 +603,25 @@ git push origin feature/your-feature
 
 Then open a pull request with a clear description of the change.
 
-------------------------------------------------------------------------
+---
 
-# 📜 Credits
 
-Built with:
-
-- Kotlin
-- Android
-- Google Play Services
-- Google Maps Platform
-- Google Routes API
-- OpenRouteService / HeiGIT API
-- Google Places API
-- Firebase
-- Cloud Firestore
-- Supabase Storage
-- OpenStreetMap / MapLibre GL where applicable
-
-------------------------------------------------------------------------
+<div align="center">
 
 # 🛕 PandalQuest
 
 ### Discover Kolkata. Build your route. Experience Durga Puja.
 
+<br>
+
 **Made for pandal hoppers.**
 
-**Current release: v2.1.0**
+<br>
+
+**v2.1.0**
+
+<br>
+
+<sub>Built with Kotlin • Maps • Firebase • Supabase • Community Data</sub>
+
+</div>
