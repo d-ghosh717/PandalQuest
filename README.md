@@ -518,7 +518,6 @@ Places API (New)
 
 Configure API-key restrictions according to the actual request architecture.
 
-> **Never commit production API keys to GitHub.**
 
 Use local configuration such as:
 
