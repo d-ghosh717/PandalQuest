@@ -333,7 +333,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="1dp"
                         android:fontFamily="@font/inter"
-                        android:text="Realtime community activity"
+                        android:text="Your personal contributions"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp" />
                 </LinearLayout>

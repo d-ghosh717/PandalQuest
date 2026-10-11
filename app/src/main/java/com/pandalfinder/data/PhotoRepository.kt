@@ -43,20 +43,21 @@ class PhotoRepository(
 
     /**
      * Resolves current Firebase user ID, signing in anonymously if needed.
+     * Invokes callback with authentic Firebase UID, or null if unauthenticated.
+     * Never generates synthetic or fake device IDs.
      */
-    fun currentUserId(onReady: (String) -> Unit) {
+    fun currentUserId(onReady: (String?) -> Unit) {
         val current = auth.currentUser
         if (current != null) {
             onReady(current.uid)
         } else {
             auth.signInAnonymously()
                 .addOnSuccessListener { result ->
-                    val uid = result.user?.uid ?: "anonymous_${UUID.randomUUID().toString().take(8)}"
-                    onReady(uid)
+                    onReady(result.user?.uid)
                 }
                 .addOnFailureListener { err ->
                     Log.e(TAG, "Anonymous sign-in failed during photo op: ${err.message}", err)
-                    onReady("device_user_${UUID.randomUUID().toString().take(8)}")
+                    onReady(null)
                 }
         }
     }
@@ -129,6 +130,12 @@ class PhotoRepository(
     ) {
         val cleanId = pandalId.removePrefix("pandal:")
         currentUserId { uid ->
+            if (uid.isNullOrBlank()) {
+                Log.e(TAG_UPLOAD, "Upload aborted: Active Firebase authentication is required.")
+                onComplete(Result.failure(IllegalStateException("Active Firebase authentication is required to upload photos.")))
+                return@currentUserId
+            }
+
             val compressedBytes = compressImage(context, imageUri)
             if (compressedBytes == null) {
                 onComplete(Result.failure(IllegalArgumentException("Failed to decode or compress selected image")))
@@ -280,6 +287,11 @@ class PhotoRepository(
         }
 
         currentUserId { uid ->
+            if (uid.isNullOrBlank()) {
+                onComplete(Result.failure(SecurityException("Active Firebase authentication is required to replace photos.")))
+                return@currentUserId
+            }
+
             // Enforce ownership check before attempting replacement
             if (oldPhoto.uploadedBy.isNotBlank() && oldPhoto.uploadedBy != uid) {
                 Log.w(TAG_UPLOAD, "Replace rejected: current user $uid is not the owner of photo ${oldPhoto.id}")
@@ -351,6 +363,11 @@ class PhotoRepository(
      */
     fun deletePhoto(photo: PandalPhoto, onComplete: (Exception?) -> Unit) {
         currentUserId { currentUid ->
+            if (currentUid.isNullOrBlank()) {
+                onComplete(SecurityException("Active Firebase authentication is required to delete photos."))
+                return@currentUserId
+            }
+
             if (photo.uploadedBy.isNotBlank() && photo.uploadedBy != currentUid) {
                 Log.w(TAG_DELETE, "Delete rejected: current user $currentUid is not the owner of photo ${photo.id}")
                 onComplete(SecurityException("You do not have permission to delete this photo"))

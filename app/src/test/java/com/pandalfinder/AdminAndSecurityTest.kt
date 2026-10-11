@@ -214,7 +214,175 @@ class AdminAndSecurityTest {
         assertFalse("Unauthenticated client cannot read global presence", canReadGlobalPresence(null, isAdmin = false))
     }
 
-    // ── 8. Release Version Metadata & My Pandal Label ──
+    // ── 8. Community Gallery Visibility vs Personal "My Photos" Filtering ──
+
+    @Test
+    fun testCommunityGalleryVsMyPhotosFiltering() {
+        val authorUid = "AUTHOR_FIREBASE_UID_mc8obi7q"
+        val newUserUid = "NEW_GITHUB_USER_1s9lUvg"
+        val otherUserUid = "COMMUNITY_USER_v5fMfc"
+
+        val photo1 = PandalPhoto("p1", "bagbazar", "pandal-photos/$authorUid/bagbazar/p1.jpg", "https://url/1.jpg", authorUid, 1000L, "active")
+        val photo2 = PandalPhoto("p2", "bagbazar", "pandal-photos/$authorUid/bagbazar/p2.jpg", "https://url/2.jpg", authorUid, 1050L, "active")
+        val photo3 = PandalPhoto("p3", "bagbazar", "pandal-photos/$otherUserUid/bagbazar/p3.jpg", "https://url/3.jpg", otherUserUid, 1100L, "active")
+        val photo4Hidden = PandalPhoto("p4", "bagbazar", "pandal-photos/$otherUserUid/bagbazar/p4.jpg", "https://url/4.jpg", otherUserUid, 1150L, "hidden")
+
+        val allCommunityPhotos = listOf(photo1, photo2, photo3, photo4Hidden)
+
+        // 1. Public Community Gallery: Displays all ACTIVE photos across all contributors
+        val communityGallery = allCommunityPhotos.filter { it.status == "active" }
+        assertEquals("Community gallery must include photos from all active contributors (author + others)", 3, communityGallery.size)
+        assertTrue("Community gallery includes author photo 1", communityGallery.contains(photo1))
+        assertTrue("Community gallery includes author photo 2", communityGallery.contains(photo2))
+        assertTrue("Community gallery includes community user photo 3", communityGallery.contains(photo3))
+        assertFalse("Hidden photos must not appear in public gallery", communityGallery.contains(photo4Hidden))
+
+        // 2. "My Photos" sheet: Strictly filters by uploadedBy == currentUid
+        val myPhotosNewUser = allCommunityPhotos.filter { it.uploadedBy == newUserUid && it.status == "active" }
+        assertTrue("A newly installed user's My Photos must be empty, not showing author's photos", myPhotosNewUser.isEmpty())
+
+        val myPhotosOtherUser = allCommunityPhotos.filter { it.uploadedBy == otherUserUid && it.status == "active" }
+        assertEquals("Other user must only see their own active photo", 1, myPhotosOtherUser.size)
+        assertEquals("p3", myPhotosOtherUser[0].id)
+
+        val myPhotosAuthor = allCommunityPhotos.filter { it.uploadedBy == authorUid && it.status == "active" }
+        assertEquals("Author sees only their own active photos in My Photos", 2, myPhotosAuthor.size)
+
+        // 3. Contribution counts: Only counts user's own active uploads
+        fun computePhotoContributionCount(photos: List<PandalPhoto>, uid: String): Int {
+            if (uid.isBlank()) return 0
+            return photos.count { it.uploadedBy == uid && it.status == "active" }
+        }
+
+        assertEquals("New user contribution count must be 0", 0, computePhotoContributionCount(allCommunityPhotos, newUserUid))
+        assertEquals("Other user contribution count must be 1", 1, computePhotoContributionCount(allCommunityPhotos, otherUserUid))
+        assertEquals("Author contribution count must be 2", 2, computePhotoContributionCount(allCommunityPhotos, authorUid))
+        assertEquals("Blank UID must never yield contribution count", 0, computePhotoContributionCount(allCommunityPhotos, ""))
+    }
+
+    // ── 9. Partial Deletion Exception Handling ──
+
+    @Test
+    fun testPhotoPartialDeletionExceptionDiagnostics() {
+        val storageEx = RuntimeException("Supabase Storage HTTP 403 Access Denied")
+        val partialEx = com.pandalfinder.data.PhotoPartialDeletionException(
+            message = "Photo removed from gallery, but storage cleanup failed: ${storageEx.message}",
+            firestoreSuccess = true,
+            storageSuccess = false,
+            cause = storageEx
+        )
+
+        assertTrue("Firestore metadata was marked deleted", partialEx.firestoreSuccess)
+        assertFalse("Storage deletion failed", partialEx.storageSuccess)
+        assertEquals(storageEx, partialEx.cause)
+        assertTrue(partialEx.message?.contains("Photo removed from gallery") == true)
+        assertTrue(partialEx.message?.contains("HTTP 403") == true)
+    }
+
+    // ── 10. Uploader Identity Safety ──
+
+    @Test
+    fun testUploaderIdentitySafetyRules() {
+        fun isValidUploaderUid(uid: String?): Boolean {
+            if (uid.isNullOrBlank()) return false
+            if (uid.startsWith("user_") || uid.startsWith("device_user_") || uid.startsWith("anonymous_")) return false
+            return true
+        }
+
+        assertTrue("Authentic Firebase UID is valid", isValidUploaderUid("mc8obi7qRDhU4Zbk0ViVEWRVvqF2"))
+        assertTrue("Authentic anonymous Firebase UID is valid", isValidUploaderUid("1s9lUvgxbqOpihcg6xe97tQ7DL72"))
+
+        assertFalse("Null UID must be rejected", isValidUploaderUid(null))
+        assertFalse("Blank UID must be rejected", isValidUploaderUid(""))
+        assertFalse("Synthetic user_ fallback must be rejected", isValidUploaderUid("user_a1b2c3d4"))
+        assertFalse("Synthetic device_user_ fallback must be rejected", isValidUploaderUid("device_user_e5f6g7h8"))
+        assertFalse("Synthetic anonymous_ fallback must be rejected", isValidUploaderUid("anonymous_9i0j1k2l"))
+    }
+
+    // ── 12. Multi-User Distinct Anonymous Contributions & Personal Isolation ──
+
+    @Test
+    fun testMultiUserDistinctAnonymousContributions() {
+        val userAAnon = "anon_uid_alpha_1111"
+        val userBAnon = "anon_uid_beta_2222"
+        val authorUid = "mc8obi7qRDhU4Zbk0ViVEWRVvqF2"
+
+        data class MockCrowdReport(val id: String, val userId: String, val status: String)
+        data class MockWeatherReport(val id: String, val userId: String, val status: String)
+
+        val photos = listOf(
+            PandalPhoto("p_a1", "chetla", "pandal-photos/$userAAnon/chetla/p_a1.jpg", "https://url/a1.jpg", userAAnon, 1000L, "active"),
+            PandalPhoto("p_a2", "chetla", "pandal-photos/$userAAnon/chetla/p_a2.jpg", "https://url/a2.jpg", userAAnon, 1050L, "active"),
+            PandalPhoto("p_b1", "chetla", "pandal-photos/$userBAnon/chetla/p_b1.jpg", "https://url/b1.jpg", userBAnon, 1100L, "active"),
+            PandalPhoto("p_auth", "chetla", "pandal-photos/$authorUid/chetla/p_auth.jpg", "https://url/auth.jpg", authorUid, 1200L, "active")
+        )
+
+        val crowdReports = listOf(
+            MockCrowdReport("c_a1", userAAnon, "active"),
+            MockCrowdReport("c_b1", userBAnon, "active"),
+            MockCrowdReport("c_b2", userBAnon, "active"),
+            MockCrowdReport("c_auth", authorUid, "active")
+        )
+
+        val weatherReports = listOf(
+            MockWeatherReport("w_a1", userAAnon, "active"),
+            MockWeatherReport("w_auth", authorUid, "active")
+        )
+
+        fun computeUserContributions(uid: String): com.pandalfinder.data.UserContributions {
+            if (uid.isBlank()) return com.pandalfinder.data.UserContributions(0, 0, 0)
+            val pCount = photos.count { it.uploadedBy == uid && it.status == "active" && it.downloadUrl.isNotBlank() }
+            val cCount = crowdReports.count { it.userId == uid && it.status == "active" }
+            val wCount = weatherReports.count { it.userId == uid && it.status == "active" }
+            return com.pandalfinder.data.UserContributions(pCount, cCount, wCount)
+        }
+
+        // Test User A (Anonymous 1)
+        val contribA = computeUserContributions(userAAnon)
+        assertEquals("User A photo count", 2, contribA.photosCount)
+        assertEquals("User A crowd count", 1, contribA.crowdReportsCount)
+        assertEquals("User A weather count", 1, contribA.weatherReportsCount)
+        assertEquals("User A total count equals sum", 4, contribA.total)
+        assertEquals(contribA.photosCount + contribA.crowdReportsCount + contribA.weatherReportsCount, contribA.total)
+
+        // Test User B (Anonymous 2)
+        val contribB = computeUserContributions(userBAnon)
+        assertEquals("User B photo count", 1, contribB.photosCount)
+        assertEquals("User B crowd count", 2, contribB.crowdReportsCount)
+        assertEquals("User B weather count", 0, contribB.weatherReportsCount)
+        assertEquals("User B total count equals sum", 3, contribB.total)
+        assertEquals(contribB.photosCount + contribB.crowdReportsCount + contribB.weatherReportsCount, contribB.total)
+
+        // Test Author / Admin
+        val contribAuth = computeUserContributions(authorUid)
+        assertEquals("Author photo count", 1, contribAuth.photosCount)
+        assertEquals("Author crowd count", 1, contribAuth.crowdReportsCount)
+        assertEquals("Author weather count", 1, contribAuth.weatherReportsCount)
+        assertEquals("Author total count equals sum", 3, contribAuth.total)
+
+        // Test Unauthenticated / Unknown UID
+        val contribEmpty = computeUserContributions("")
+        assertEquals("Empty UID photos must be 0", 0, contribEmpty.photosCount)
+        assertEquals("Empty UID crowd must be 0", 0, contribEmpty.crowdReportsCount)
+        assertEquals("Empty UID weather must be 0", 0, contribEmpty.weatherReportsCount)
+        assertEquals("Empty UID total must be 0", 0, contribEmpty.total)
+
+        // 1. My Photos isolation: User A sees only A; User B sees only B
+        val userAPhotos = photos.filter { it.uploadedBy == userAAnon && it.status == "active" && it.downloadUrl.isNotBlank() }
+        val userBPhotos = photos.filter { it.uploadedBy == userBAnon && it.status == "active" && it.downloadUrl.isNotBlank() }
+        assertEquals(2, userAPhotos.size)
+        assertTrue(userAPhotos.all { it.uploadedBy == userAAnon })
+        assertEquals(1, userBPhotos.size)
+        assertTrue(userBPhotos.all { it.uploadedBy == userBAnon })
+
+        // 2. Public Community Gallery: Displays all active photos from User A, User B, and Author
+        val communityGallery = photos.filter { it.status == "active" }
+        assertEquals("Community gallery contains all 4 photos", 4, communityGallery.size)
+        assertTrue(communityGallery.contains(userAPhotos[0]))
+        assertTrue(communityGallery.contains(userBPhotos[0]))
+    }
+
+    // ── 13. Release Version Metadata & My Pandal Label ──
 
     @Test
     fun testVersionMetadataAndLabel() {

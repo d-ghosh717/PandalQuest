@@ -2925,6 +2925,14 @@ class MainActivity : AppCompatActivity() {
 
                 val devId = android.provider.Settings.Secure.getString(contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "device_user"
                 authRepo.getOrCreateUid { uid ->
+                    if (uid.isNullOrBlank()) {
+                        mainHandler.post {
+                            submitBtn.isEnabled = true
+                            submitBtn.text = "Submit Crowd Report"
+                            Toast.makeText(this, "Authentication required to submit report.", Toast.LENGTH_SHORT).show()
+                        }
+                        return@getOrCreateUid
+                    }
                     crowd.submit(pandal, selectedLevel, uid, devId, location) { error ->
                         mainHandler.post {
                             if (error != null) {
@@ -3056,7 +3064,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         photos.currentUserId { currentUid ->
-            val isOwner = photo.uploadedBy.isNotBlank() && photo.uploadedBy == currentUid
+            val isOwner = !currentUid.isNullOrBlank() && photo.uploadedBy.isNotBlank() && photo.uploadedBy == currentUid
             val isAdmin = adminRepo.isAdminLoggedIn
             if (isOwner || isAdmin) {
                 deleteBtn.visibility = View.VISIBLE
@@ -3067,13 +3075,16 @@ class MainActivity : AppCompatActivity() {
                     if (isAdmin && !isOwner) {
                         adminRepo.deletePhotoAsAdmin(photo) { err ->
                             mainHandler.post {
-                                if (err != null) {
+                                if (err == null) {
+                                    Toast.makeText(this, "Photo deleted as Admin", Toast.LENGTH_SHORT).show()
+                                    dialog.dismiss()
+                                } else if (err is com.pandalfinder.data.PhotoPartialDeletionException && err.firestoreSuccess) {
+                                    Toast.makeText(this, "Photo unlisted from gallery (Storage warning: ${err.cause?.localizedMessage ?: err.localizedMessage})", Toast.LENGTH_LONG).show()
+                                    dialog.dismiss()
+                                } else {
                                     Toast.makeText(this, "Failed to delete: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
                                     deleteBtn.isEnabled = true
                                     deleteBtn.text = "Moderate / Delete Photo"
-                                } else {
-                                    Toast.makeText(this, "Photo deleted as Admin", Toast.LENGTH_SHORT).show()
-                                    dialog.dismiss()
                                 }
                             }
                         }
@@ -3217,13 +3228,26 @@ class MainActivity : AppCompatActivity() {
         val contributionsSubtitle = view.findViewById<TextView>(R.id.myContributionsSubtitle)
 
         authRepo.getOrCreateUid { uid ->
-            contributions.fetchUserContributions(uid) { userContribs ->
+            if (uid.isNullOrBlank()) {
                 mainHandler.post {
-                    photosCountText.text = userContribs.photosCount.toString()
-                    crowdCountText.text = userContribs.crowdReportsCount.toString()
-                    weatherCountText?.text = userContribs.weatherReportsCount.toString()
-                    val total = userContribs.total
-                    contributionsSubtitle.text = if (total == 0) "No community contributions yet" else "$total total community contributions"
+                    photosCountText.text = "0"
+                    crowdCountText.text = "0"
+                    weatherCountText?.text = "0"
+                    contributionsSubtitle.text = "No contributions yet"
+                }
+            } else {
+                contributions.fetchUserContributions(uid) { userContribs ->
+                    mainHandler.post {
+                        photosCountText.text = userContribs.photosCount.toString()
+                        crowdCountText.text = userContribs.crowdReportsCount.toString()
+                        weatherCountText?.text = userContribs.weatherReportsCount.toString()
+                        val total = userContribs.total
+                        contributionsSubtitle.text = when (total) {
+                            0 -> "No contributions yet"
+                            1 -> "1 personal contribution"
+                            else -> "$total personal contributions"
+                        }
+                    }
                 }
             }
         }
@@ -3558,11 +3582,14 @@ class MainActivity : AppCompatActivity() {
                                         Toast.makeText(this, "Deleting photo...", Toast.LENGTH_SHORT).show()
                                         adminRepo.deletePhotoAsAdmin(photo) { err ->
                                             mainHandler.post {
-                                                if (err != null) {
-                                                    Toast.makeText(this, "Failed: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                                } else {
+                                                if (err == null) {
                                                     Toast.makeText(this, "Photo deleted by Admin", Toast.LENGTH_SHORT).show()
                                                     loadPhotos()
+                                                } else if (err is com.pandalfinder.data.PhotoPartialDeletionException && err.firestoreSuccess) {
+                                                    Toast.makeText(this, "Photo unlisted from gallery (Storage cleanup warning: ${err.cause?.localizedMessage ?: err.localizedMessage})", Toast.LENGTH_LONG).show()
+                                                    loadPhotos()
+                                                } else {
+                                                    Toast.makeText(this, "Failed: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
                                         }
@@ -3830,14 +3857,22 @@ class MainActivity : AppCompatActivity() {
             recyclerView.visibility = View.GONE
 
             authRepo.getOrCreateUid { uid ->
-                contributions.fetchUserPhotos(uid) { userPhotoList ->
+                if (uid.isNullOrBlank()) {
                     mainHandler.post {
                         loadingProgress.visibility = View.GONE
-                        if (userPhotoList.isEmpty()) {
-                            emptyLayout.visibility = View.VISIBLE
-                            recyclerView.visibility = View.GONE
-                            subtitle.text = "No photos uploaded yet"
-                        } else {
+                        emptyLayout.visibility = View.VISIBLE
+                        recyclerView.visibility = View.GONE
+                        subtitle.text = "No photos uploaded yet"
+                    }
+                } else {
+                    contributions.fetchUserPhotos(uid) { userPhotoList ->
+                        mainHandler.post {
+                            loadingProgress.visibility = View.GONE
+                            if (userPhotoList.isEmpty()) {
+                                emptyLayout.visibility = View.VISIBLE
+                                recyclerView.visibility = View.GONE
+                                subtitle.text = "No photos uploaded yet"
+                            } else {
                             emptyLayout.visibility = View.GONE
                             recyclerView.visibility = View.VISIBLE
                             subtitle.text = if (userPhotoList.size == 1) "1 photo uploaded" else "${userPhotoList.size} photos uploaded"
@@ -3886,6 +3921,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
 
         refreshUserPhotos()
         sheet.show()
@@ -4281,6 +4317,14 @@ class MainActivity : AppCompatActivity() {
 
             val devId = eligibilityResult.deviceId
             authRepo.getOrCreateUid { uid ->
+                if (uid.isNullOrBlank()) {
+                    mainHandler.post {
+                        progress.visibility = View.GONE
+                        submit.isEnabled = true
+                        Toast.makeText(this, "Authentication required to submit report.", Toast.LENGTH_SHORT).show()
+                    }
+                    return@getOrCreateUid
+                }
                 crowd.submit(item, chosen, uid, devId, location) { error ->
                     mainHandler.post {
                         progress.visibility = View.GONE

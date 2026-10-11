@@ -250,12 +250,29 @@ class SupabaseStorageService(
     }
 
     private fun parseErrorMessage(code: Int, body: String): String {
-        return when {
-            code == 401 || code == 403 -> "Storage authorization failed. Please check permissions."
-            code == 413 -> "File exceeds maximum 5MB size limit."
-            body.contains("Bucket not found", ignoreCase = true) -> "Storage bucket '$bucketName' not found."
-            body.isNotBlank() -> body
-            else -> "HTTP $code storage error"
+        return try {
+            val trimmed = body.trim()
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                val json = JSONObject(trimmed)
+                val msg = json.optString("message", "")
+                val error = json.optString("error", "")
+                val status = json.optString("statusCode", "")
+                val codeStr = json.optString("code", "")
+                if (status == "403" || error.equals("Unauthorized", ignoreCase = true) || codeStr == "AccessDenied" || msg.contains("Access denied", ignoreCase = true)) {
+                    return "Storage authorization failed (HTTP 403 Access Denied): verified admin policy or owner identity required."
+                }
+                if (msg.isNotBlank()) return msg
+                if (error.isNotBlank()) return error
+            }
+            when {
+                code == 401 || code == 403 -> "Storage authorization failed. Please check permissions."
+                code == 413 -> "File exceeds maximum 5MB size limit."
+                body.contains("Bucket not found", ignoreCase = true) -> "Storage bucket '$bucketName' not found."
+                body.isNotBlank() -> body
+                else -> "HTTP $code storage error"
+            }
+        } catch (_: Exception) {
+            if (body.isNotBlank()) body else "HTTP $code storage error"
         }
     }
 

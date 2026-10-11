@@ -24,6 +24,17 @@ data class AdminWeatherReport(
 )
 
 /**
+ * Represents partial failure state during photo deletion, explicitly distinguishing
+ * whether Firestore metadata or Supabase Storage object failed.
+ */
+class PhotoPartialDeletionException(
+    message: String,
+    val firestoreSuccess: Boolean,
+    val storageSuccess: Boolean,
+    cause: Throwable? = null
+) : Exception(message, cause)
+
+/**
  * Repository for Admin Authentication, Authorization, and Content Moderation.
  * 
  * Authorization is strictly verified on the server-side via Firestore `/admins/{uid}`
@@ -166,57 +177,77 @@ class AdminRepository(
     }
 
     /**
-     * Deletes a photo as Admin: deletes from Supabase Storage first, then deletes Firestore document.
+     * Deletes a community photo as Admin.
+     * 
+     * Authorization is verified server-side:
+     * - Firestore delete is authorized by `firestore.rules isAdmin()`. Unauthorized requests are rejected with PERMISSION_DENIED.
+     * - Supabase Storage delete is authorized by Storage RLS `public.is_admin()`.
+     * 
+     * Handles partial failures safely: if Firestore metadata is deleted but Storage cleanup fails,
+     * reports [PhotoPartialDeletionException] with full diagnostic details.
      */
-    fun deletePhotoAsAdmin(
-        photo: PandalPhoto,
-        onComplete: (Exception?) -> Unit
-    ) {
-        if (!isAdminLoggedIn && currentAdminUid == null) {
-            onComplete(SecurityException("Admin privileges required"))
-            return
-        }
+     fun deletePhotoAsAdmin(
+         photo: PandalPhoto,
+         onComplete: (Exception?) -> Unit
+     ) {
+         if (!isAdminLoggedIn && currentAdminUid == null) {
+             onComplete(SecurityException("Admin privileges required"))
+             return
+         }
 
-        val user = auth.currentUser
-        if (user == null) {
-            onComplete(SecurityException("Not authenticated"))
-            return
-        }
+         val user = auth.currentUser
+         if (user == null) {
+             onComplete(SecurityException("Not authenticated"))
+             return
+         }
 
-        user.getIdToken(true)
-            .addOnSuccessListener { tokenResult ->
-                val idToken = tokenResult.token
-                if (photo.storagePath.isNotBlank()) {
-                    supabase.deletePhoto(photo.storagePath, idToken) { storageErr ->
-                        if (storageErr == null) {
-                            firestore.collection(PhotoRepository.COLLECTION)
-                                .document(photo.id)
-                                .delete()
-                                .addOnSuccessListener {
-                                    Log.i(TAG, "Admin deleted photo ${photo.id}")
-                                    onComplete(null)
-                                }
-                                .addOnFailureListener { err ->
-                                    Log.e(TAG, "Admin delete Firestore doc failed: ${err.message}", err)
-                                    onComplete(err)
-                                }
-                        } else {
-                            Log.e(TAG, "Admin Supabase delete failed: ${storageErr.message}", storageErr)
-                            onComplete(storageErr)
-                        }
-                    }
-                } else {
-                    firestore.collection(PhotoRepository.COLLECTION)
-                        .document(photo.id)
-                        .delete()
-                        .addOnSuccessListener { onComplete(null) }
-                        .addOnFailureListener { onComplete(it) }
-                }
-            }
-            .addOnFailureListener { tokenErr ->
-                onComplete(tokenErr)
-            }
-    }
+         user.getIdToken(true)
+             .addOnSuccessListener { tokenResult ->
+                 val idToken = tokenResult.token
+                 
+                 // Step 1: Delete Firestore metadata.
+                 // This immediately removes the photo from community gallery, searches, and admin moderation.
+                 // Strictly authorized by firestore.rules isAdmin() on the server side.
+                 firestore.collection(PhotoRepository.COLLECTION)
+                     .document(photo.id)
+                     .delete()
+                     .addOnSuccessListener {
+                         Log.i(TAG, "Admin deleted photo doc ${photo.id} from Firestore")
+                         
+                         // Step 2: Delete Supabase Storage object.
+                         if (photo.storagePath.isNotBlank()) {
+                             supabase.deletePhoto(photo.storagePath, idToken) { storageErr ->
+                                 if (storageErr == null) {
+                                     Log.i(TAG, "Admin deleted storage object ${photo.storagePath}")
+                                     onComplete(null)
+                                 } else {
+                                     Log.w(TAG, "Admin storage delete failed for ${photo.storagePath}: ${storageErr.message}")
+                                     onComplete(PhotoPartialDeletionException(
+                                         message = "Photo removed from gallery, but storage cleanup failed: ${storageErr.message}",
+                                         firestoreSuccess = true,
+                                         storageSuccess = false,
+                                         cause = storageErr
+                                     ))
+                                 }
+                             }
+                         } else {
+                             onComplete(null)
+                         }
+                     }
+                     .addOnFailureListener { firestoreErr ->
+                         Log.e(TAG, "Admin delete Firestore doc failed: ${firestoreErr.message}", firestoreErr)
+                         onComplete(PhotoPartialDeletionException(
+                             message = "Failed to delete photo metadata from Firestore: ${firestoreErr.message}",
+                             firestoreSuccess = false,
+                             storageSuccess = false,
+                             cause = firestoreErr
+                         ))
+                     }
+             }
+             .addOnFailureListener { tokenErr ->
+                 onComplete(tokenErr)
+             }
+     }
 
     /**
      * Updates moderation status of a photo (e.g. 'active', 'hidden', 'flagged').

@@ -37,20 +37,21 @@ class AuthRepository {
 
     /**
      * Retrieves the current user's UID or performs an immediate anonymous sign-in.
+     * Invokes callback with valid Firebase UID, or null if unauthenticated.
      */
-    fun getOrCreateUid(onReady: (String) -> Unit) {
+    fun getOrCreateUid(onReady: (String?) -> Unit) {
         val current = auth.currentUser
         if (current != null) {
             onReady(current.uid)
         } else {
             auth.signInAnonymously()
                 .addOnSuccessListener { result ->
-                    val uid = result.user?.uid ?: "user_${UUID.randomUUID().toString().take(8)}"
+                    val uid = result.user?.uid
                     onReady(uid)
                 }
                 .addOnFailureListener { err ->
                     Log.e(TAG, "Anonymous sign-in error on demand: ${err.message}", err)
-                    onReady("user_${UUID.randomUUID().toString().take(8)}")
+                    onReady(null)
                 }
         }
     }
