@@ -123,6 +123,26 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── Anonymous User Registration & Analytics Telemetry ──
+    // Keyed by Firebase Auth UID (anonymous or admin).
+    // Stores strictly non-PII launch telemetry (createdAt, lastSeenAt, appVersion).
+    // Normal users can create, update, or get ONLY their own telemetry document.
+    // Querying/listing the user collection is strictly restricted to verified administrators.
+    match /users/{userId} {
+      allow get: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.keys().hasOnly(['createdAt', 'lastSeenAt', 'appVersion'])
+                    && request.resource.data.appVersion is string;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.keys().hasOnly(['createdAt', 'lastSeenAt', 'appVersion'])
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'appVersion'])
+                    && request.resource.data.appVersion is string;
+      allow delete: if isAdmin();
+    }
+
     // ── Default Deny All Other Collections ──
     match /{document=**} {
       allow read, write: if false;

@@ -2,7 +2,7 @@
 
 > Security, privacy and authorization architecture for PandalQuest.
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue.svg)
 ![Audit](https://img.shields.io/badge/Last_Security_Audit-October_2026-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Android-brightgreen.svg)
 ![Firebase](https://img.shields.io/badge/Backend-Firebase-orange.svg)
@@ -14,12 +14,14 @@
 
 | Area | Protection |
 | :--- | :--- |
-| **Normal users** | Firebase Anonymous Auth |
-| **Admins** | Firebase Email/Password + Firestore allowlist |
-| **Database** | Firestore Security Rules |
+| **Normal users** | Firebase Anonymous Auth (Zero login barrier) |
+| **Admins** | Firebase Email/Password + Firestore allowlist (`/admins/{uid}`) |
+| **Database** | Firestore Security Rules (`/databases/(default)/documents`) |
+| **Realtime Presence** | Firebase Realtime Database (`.info/connected`, `onDisconnect`) + RTDB Rules |
+| **User Analytics** | Non-PII telemetry (`createdAt`, `lastSeenAt`, `appVersion`) restricted to admins |
 | **Photos** | Supabase Storage RLS |
 | **API keys** | Restricted Android keys (`com.pandalfinder` + SHA-1) |
-| **Location** | Foreground/on-device use |
+| **Location** | Foreground/on-device use only |
 | **Background tracking** | Not used |
 | **Community ownership** | UID-based ownership |
 | **Admin writes** | Server-side allowlist (`/admins/{uid}`) |
@@ -303,18 +305,51 @@ PandalQuest is engineered around privacy-first principles for devotees exploring
 | **Crowd report** | Real-time crowd information | **Yes** (attributed to anonymous UID) |
 | **Weather report** | Real-time rain information | **Yes** (attributed to anonymous UID) |
 | **Anonymous UID** | Contribution ownership & rate integrity | **Yes** (managed by Firebase Auth) |
+| **Analytics Telemetry** | Active/New user aggregate counters | **Yes** (non-PII: `createdAt`, `lastSeenAt`, `appVersion`) |
+| **Ephemeral Presence** | Live active session indicator | **Temporary** (deleted on disconnect / background) |
 | **Admin credentials** | Admin authentication | **Yes** (managed by Firebase Auth) |
 
 - **No Continuous Telemetry:** PandalQuest does not run background location services, persistent tracking workers, or continuous location telemetry.
 - **Photo Upload Privacy:** Community photo submissions do not require location permissions.
 
+### 10.1 Data Safety & User Analytics Architecture (v2.1.1)
+
+PandalQuest v2.1.1 introduces an **admin-only User Analytics dashboard** designed strictly to comply with Google Play Data Safety and privacy minimization principles:
+
+1. **Anonymous Telemetry Whitelist**:
+   - Registered under Firestore collection `/users/{userId}` where `{userId}` equals `request.auth.uid`.
+   - Fields strictly restricted to:
+     - `createdAt` (Firestore server timestamp at first launch).
+     - `lastSeenAt` (Firestore server timestamp at subsequent launches).
+     - `appVersion` (e.g. `"2.1.1"`).
+   - **Zero PII**: No user names, email addresses, telephone numbers, device hardware IDs, IP addresses, or precise GPS coordinates are ever collected or stored for analytics.
+   - **Schema Lock**: Firestore rules enforce `request.resource.data.keys().hasOnly(['createdAt', 'lastSeenAt', 'appVersion'])`. Any document payload containing unauthorized keys is rejected by server rules.
+   - **Fail-Safe Counting**: Failed app launches or incomplete registrations are never counted as active users.
+
+2. **Realtime Database Live Presence**:
+   - Uses Firebase Realtime Database at path `/presence/{uid}/{sessionId}`.
+   - Bound to Android Activity lifecycle:
+     - Registered in `onStart()` when the app enters the active foreground.
+     - Automatically removed via `onDisconnect().removeValue()`.
+     - Explicitly removed in `onStop()` when the user backgrounds the application or closes it.
+   - **Multi-Device / Multi-Session Deduplication**: If a user opens multiple app instances or tabs under the same UID, presence entries share the parent UID key. The admin listener counts unique top-level UID keys (`snapshot.children`), preventing artificial double-counting.
+   - **Network Edge Cases**: Abrupt network disconnection, mobile tower loss, or sudden process kill by the Android OS may briefly delay the live count decrement by 30–60 seconds until the Firebase Realtime Database server detects connection timeout and executes the registered `onDisconnect()` hook.
+
+3. **Timezone-Aware Daily Metrics**:
+   - Daily boundaries for "Active Today" and "New Users Today" are calculated against Indian Standard Time (`Asia/Kolkata`, UTC+05:30), starting at `00:00:00.000 IST` rather than UTC midnight, ensuring festival days match local Kolkata calendar days.
+
+4. **Access Control & Privacy Boundaries**:
+   - Standard anonymous users have zero read permissions across `/users` or `/presence`.
+   - Standard anonymous users can create and update only their own `/users/{uid}` and `/presence/{uid}/{sessionId}` records.
+   - Analytics metrics and user IDs are strictly hidden from normal users and accessible only by authenticated administrators verified via Firestore `/admins/{uid}`.
+
 ---
 
-## 11. Admin Bootstrap
+## 11. Admin Bootstrap & Infrastructure Setup
 
-To grant administrative access to an authorized maintainer:
+To configure Firebase and grant administrative access:
 
-### A. Firebase Console
+### A. Firebase Authentication & Firestore Admin Role
 1. Navigate to **Firebase Console $\rightarrow$ Authentication $\rightarrow$ Users**.
 2. Click **Add User**, enter the admin email and a secure password.
 3. Copy the generated **Firebase User UID** (e.g. `pX9qZ...`).
@@ -328,7 +363,32 @@ To grant administrative access to an authorized maintainer:
    }
    ```
 
-### B. Supabase Dashboard (Optional if Supabase Storage Admin Moderation is configured)
+### B. Firebase Realtime Database Configuration (v2.1.1)
+1. In the **Firebase Console**, go to **Build $\rightarrow$ Realtime Database**.
+2. If not already created, click **Create Database**:
+   - Location: Select **asia-south1** (or default database location matching `google-services.json`: `https://pandalquest-default-rtdb.firebaseio.com`).
+   - Security: Start in **Locked mode**.
+3. Deploy the database rules:
+   ```bash
+   firebase deploy --only database
+   ```
+   Or paste the contents of `database.rules.json` into the Firebase Console Rules tab.
+4. Deploy updated Firestore security rules:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
+
+### C. Cost & Quota Analysis
+- **Firebase Realtime Database (Spark Free Plan)**:
+  - 100 simultaneous active connections.
+  - 1 GB stored data.
+  - 10 GB/month download.
+  - *Sufficient for standard staging, internal testing, and admin monitoring.*
+- **Firebase Blaze Plan Scaling (Optional for peak Durga Puja days)**:
+  - If concurrent live festival visitors exceed 100, upgrade to Blaze plan ($1/GB stored data, $1/GB downloaded data).
+  - Ephemeral presence records are minuscule (~60 bytes each) and auto-delete, keeping database storage negligible (< 1 MB).
+
+### D. Supabase Dashboard (Optional for Photo Moderation)
 1. Open the **Supabase SQL Editor**.
 2. Run:
    ```sql

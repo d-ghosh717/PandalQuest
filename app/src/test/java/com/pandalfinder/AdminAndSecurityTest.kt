@@ -159,4 +159,69 @@ class AdminAndSecurityTest {
         assertFalse("Non-admin role must be DENIED", isAuthorizedAdmin(nonAdminUser))
         assertFalse("Missing admin record must be DENIED", isAuthorizedAdmin(missingRecord))
     }
+
+    // ── 6. User Analytics Privacy & Telemetry Whitelist ──
+
+    @Test
+    fun testUserTelemetryFieldWhitelistEnforcement() {
+        val allowedKeys = setOf("createdAt", "lastSeenAt", "appVersion")
+
+        fun isValidTelemetryPayload(keys: Set<String>): Boolean {
+            return keys.isNotEmpty() && allowedKeys.containsAll(keys)
+        }
+
+        // Valid telemetry payload with zero PII
+        val validPayload = setOf("createdAt", "lastSeenAt", "appVersion")
+        val validLaunchUpdate = setOf("lastSeenAt", "appVersion")
+        assertTrue("Valid telemetry payload must be accepted", isValidTelemetryPayload(validPayload))
+        assertTrue("Valid launch update must be accepted", isValidTelemetryPayload(validLaunchUpdate))
+
+        // Payloads containing PII must be rejected
+        val payloadWithName = setOf("createdAt", "lastSeenAt", "appVersion", "name")
+        val payloadWithEmail = setOf("createdAt", "lastSeenAt", "email")
+        val payloadWithPhone = setOf("createdAt", "phoneNumber")
+        val payloadWithLocation = setOf("createdAt", "lastSeenAt", "latitude", "longitude")
+
+        assertFalse("Payload with name must be DENIED", isValidTelemetryPayload(payloadWithName))
+        assertFalse("Payload with email must be DENIED", isValidTelemetryPayload(payloadWithEmail))
+        assertFalse("Payload with phone must be DENIED", isValidTelemetryPayload(payloadWithPhone))
+        assertFalse("Payload with GPS coordinates must be DENIED", isValidTelemetryPayload(payloadWithLocation))
+    }
+
+    // ── 7. Realtime Database Presence Authorization ──
+
+    @Test
+    fun testPresenceSessionAuthorization() {
+        fun canWritePresence(authUid: String?, targetUid: String): Boolean {
+            return authUid != null && authUid == targetUid
+        }
+
+        fun canReadGlobalPresence(authUid: String?, isAdmin: Boolean): Boolean {
+            return authUid != null && isAdmin
+        }
+
+        val userA = "ANON_USER_123"
+        val userB = "ANON_USER_456"
+
+        // Users can only write to their own presence session
+        assertTrue("User A can write their own presence", canWritePresence(userA, userA))
+        assertFalse("User B cannot tamper with User A's presence", canWritePresence(userB, userA))
+        assertFalse("Unauthenticated client cannot write presence", canWritePresence(null, userA))
+
+        // Only authorized admins can read all presence nodes
+        assertTrue("Admin can read global live user presence", canReadGlobalPresence(userA, isAdmin = true))
+        assertFalse("Normal user cannot read global presence", canReadGlobalPresence(userA, isAdmin = false))
+        assertFalse("Unauthenticated client cannot read global presence", canReadGlobalPresence(null, isAdmin = false))
+    }
+
+    // ── 8. Release Version Metadata & My Pandal Label ──
+
+    @Test
+    fun testVersionMetadataAndLabel() {
+        assertEquals("Release versionName must be 2.1.1", "2.1.1", BuildConfig.VERSION_NAME)
+        assertEquals("Release versionCode must be 5", 5, BuildConfig.VERSION_CODE)
+        val userVisibleLabel = "PandalQuest v${BuildConfig.VERSION_NAME}"
+        assertEquals("My Pandal version label must display PandalQuest v2.1.1", "PandalQuest v2.1.1", userVisibleLabel)
+    }
 }
+

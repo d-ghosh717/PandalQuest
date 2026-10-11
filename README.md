@@ -14,7 +14,7 @@ Build your hopping route. Track crowd updates. Share photos. Navigate with ease.
 [![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=111111)](https://firebase.google.com/)
 [![Google%20Maps](https://img.shields.io/badge/Google%20Maps-EA4335?style=for-the-badge&logo=googlemaps&logoColor=white)](https://mapsplatform.google.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-1C1C1C?style=for-the-badge&logo=supabase&logoColor=3ECF8E)](https://supabase.com/)
-[![Release](https://img.shields.io/badge/Release-v2.1.0-E52B00?style=for-the-badge)](#-whats-new-in-v210)
+[![Release](https://img.shields.io/badge/Release-v2.1.1-E52B00?style=for-the-badge)](#-whats-new-in-v211)
 
 <br>
 
@@ -531,10 +531,23 @@ secrets.properties
 Enable the required services:
 
 ```text
-Firebase Authentication
-Cloud Firestore
-Firebase Security Rules
+Firebase Authentication (Anonymous + Email/Password)
+Cloud Firestore (pandalPhotos, crowdReports, weatherReports, pandalRatings, rainReports, users, admins)
+Firebase Realtime Database (presence sessions with .info/connected and onDisconnect)
+Firebase Security Rules (firestore.rules + database.rules.json)
 ```
+
+### User Analytics & Realtime Presence Setup (v2.1.1)
+
+1. Enable **Realtime Database** in the Firebase Console (Location: `asia-south1` or project default matching `https://pandalquest-default-rtdb.firebaseio.com`).
+2. Deploy the database rules:
+   ```bash
+   firebase deploy --only database
+   ```
+3. Deploy Firestore security rules:
+   ```bash
+   firebase deploy --only firestore:rules
+   ```
 
 ---
 
@@ -616,10 +629,11 @@ Then open a pull request with a clear description of the change.
 
 <br>
 
-**v2.1.0**
+**v2.1.1**
 
 <br>
 
 <sub>Built with Kotlin • Maps • Firebase • Supabase • Community Data</sub>
 
 </div>
+

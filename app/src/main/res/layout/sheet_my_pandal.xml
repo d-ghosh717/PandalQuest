@@ -530,11 +530,26 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="2dp"
         android:gravity="center"
         android:fontFamily="@font/inter"
-        android:text="PandalQuest v2.1.0"
+        android:text="PandalQuest v2.1.1"
         android:textColor="@color/text_tertiary"
+        android:textSize="12sp" />
+
+    <!-- Manual Check for Updates Action -->
+    <TextView
+        android:id="@+id/checkForUpdatesBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="8dp"
+        android:background="?attr/selectableItemBackground"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:fontFamily="@font/inter"
+        android:text="Check for updates"
+        android:textColor="@color/primary"
         android:textSize="12sp" />
 
 </LinearLayout>

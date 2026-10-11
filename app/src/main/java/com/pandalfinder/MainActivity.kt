@@ -138,6 +138,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adminRepo: AdminRepository
     private lateinit var ratingRepo: RatingRepository
     private lateinit var rainReportRepo: RainReportRepository
+    private lateinit var userAnalyticsRepo: UserAnalyticsRepository
+    private lateinit var appUpdateRepo: AppUpdateRepository
     private var isResolvingLocationSettings = false
     private var lastLocationPromptTime = 0L
 
@@ -649,11 +651,18 @@ class MainActivity : AppCompatActivity() {
         networkMonitor = NetworkMonitor(this)
         photos = PhotoRepository()
         authRepo = AuthRepository()
-        authRepo.initAndSignInAnonymously()
+        userAnalyticsRepo = UserAnalyticsRepository()
+        authRepo.initAndSignInAnonymously { uid ->
+            if (uid != null) {
+                userAnalyticsRepo.recordUserLaunch(uid, BuildConfig.VERSION_NAME)
+                userAnalyticsRepo.startPresenceSession(uid, BuildConfig.VERSION_NAME)
+            }
+        }
         contributions = ContributionsRepository()
         adminRepo = AdminRepository()
         ratingRepo = RatingRepository()
         rainReportRepo = RainReportRepository()
+        appUpdateRepo = AppUpdateRepository(this)
 
         initViews(state)
         startLaunchAnimation()
@@ -662,6 +671,13 @@ class MainActivity : AppCompatActivity() {
         setupNetworkAndAlerts()
         checkLocationSettingsAndStart(explicitUserAction = false)
         loadLiveCrowdHeatmap()
+
+        // Background automatic check for updates (throttled to 24h, off main thread)
+        appUpdateRepo.checkForUpdates(isManualCheck = false) { result ->
+            if (result is UpdateCheckResult.UpdateAvailable) {
+                showAppUpdateSheet(result.releaseInfo)
+            }
+        }
     }
 
     private fun startLaunchAnimation() {
@@ -1370,7 +1386,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onStart() { super.onStart(); mapView.onStart() }
+    override fun onStart() {
+        super.onStart()
+        mapView.onStart()
+        authRepo.currentUid?.let { uid ->
+            userAnalyticsRepo.startPresenceSession(uid, BuildConfig.VERSION_NAME)
+        }
+    }
     override fun onResume() {
         super.onResume()
         mapView.onResume()
@@ -1399,8 +1421,16 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {}
         super.onPause()
     }
-    override fun onStop() { mapView.onStop(); super.onStop() }
-    override fun onDestroy() { mapView.onDestroy(); super.onDestroy() }
+    override fun onStop() {
+        userAnalyticsRepo.stopPresenceSession()
+        mapView.onStop()
+        super.onStop()
+    }
+    override fun onDestroy() {
+        userAnalyticsRepo.stopPresenceSession()
+        mapView.onDestroy()
+        super.onDestroy()
+    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -3215,6 +3245,7 @@ class MainActivity : AppCompatActivity() {
 
         // Hidden 7-tap admin portal trigger on the version label
         val versionLabel = view.findViewById<TextView>(R.id.appVersionLabel)
+        versionLabel.text = "PandalQuest v${BuildConfig.VERSION_NAME}"
         var versionTapCount = 0
         var lastTapTime = 0L
 
@@ -3236,6 +3267,107 @@ class MainActivity : AppCompatActivity() {
                     showAdminLoginDialog()
                 }
             }
+        }
+
+        // Manual Check for Updates Action
+        val checkForUpdatesBtn = view.findViewById<TextView>(R.id.checkForUpdatesBtn)
+        checkForUpdatesBtn?.setOnClickListener {
+            checkForUpdatesBtn.text = "Checking for updates..."
+            checkForUpdatesBtn.isEnabled = false
+            appUpdateRepo.checkForUpdates(isManualCheck = true) { result ->
+                checkForUpdatesBtn.text = "Check for updates"
+                checkForUpdatesBtn.isEnabled = true
+                when (result) {
+                    is UpdateCheckResult.UpdateAvailable -> {
+                        showAppUpdateSheet(result.releaseInfo)
+                    }
+                    is UpdateCheckResult.UpToDate -> {
+                        Toast.makeText(this, "PandalQuest is up to date (v${result.currentVersion})", Toast.LENGTH_SHORT).show()
+                    }
+                    is UpdateCheckResult.Error -> {
+                        Toast.makeText(this, "Update check: ${result.message}", Toast.LENGTH_LONG).show()
+                    }
+                    is UpdateCheckResult.Throttled -> {
+                        // Not reached for manual check
+                    }
+                }
+            }
+        }
+
+        sheet.show()
+    }
+
+    // ────────────────────────────────────────────────────────
+    //  In-App Update Sheet (Safe GitHub Release Installation)
+    // ────────────────────────────────────────────────────────
+
+    private fun showAppUpdateSheet(releaseInfo: AppReleaseInfo) {
+        val sheet = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.sheet_app_update, null)
+        sheet.setContentView(view)
+
+        val titleView = view.findViewById<TextView>(R.id.updateDialogTitle)
+        val subtitleView = view.findViewById<TextView>(R.id.updateDialogSubtitle)
+        val currentVerView = view.findViewById<TextView>(R.id.updateCurrentVersionText)
+        val newVerView = view.findViewById<TextView>(R.id.updateNewVersionText)
+        val apkSizeView = view.findViewById<TextView>(R.id.updateApkSizeText)
+        val notesView = view.findViewById<TextView>(R.id.updateNotesText)
+        val closeBtn = view.findViewById<ImageView>(R.id.closeUpdateSheet)
+        val btnNow = view.findViewById<MaterialButton>(R.id.btnUpdateNow)
+        val btnLater = view.findViewById<MaterialButton>(R.id.btnUpdateLater)
+
+        if (releaseInfo.isMandatory) {
+            titleView.text = "Important Update Required"
+            subtitleView.text = "This release contains essential compatibility fixes required to continue."
+            btnLater.visibility = View.GONE
+            closeBtn.visibility = View.GONE
+            sheet.setCancelable(false)
+            sheet.setCanceledOnTouchOutside(false)
+        } else {
+            titleView.text = "Update Available"
+            subtitleView.text = "A newer stable release of PandalQuest is ready."
+            btnLater.visibility = View.VISIBLE
+            closeBtn.visibility = View.VISIBLE
+            sheet.setCancelable(true)
+            sheet.setCanceledOnTouchOutside(true)
+        }
+
+        currentVerView.text = "v${BuildConfig.VERSION_NAME}"
+        newVerView.text = "v${releaseInfo.versionName}"
+
+        if (releaseInfo.apkSize > 0) {
+            val sizeMb = String.format("%.1f MB", releaseInfo.apkSize / (1024.0 * 1024.0))
+            apkSizeView.text = sizeMb
+            apkSizeView.visibility = View.VISIBLE
+        } else {
+            apkSizeView.visibility = View.GONE
+        }
+
+        notesView.text = if (releaseInfo.releaseNotes.isNotBlank()) {
+            releaseInfo.releaseNotes
+        } else {
+            "• Bug fixes and stability improvements\n• Enhanced reliability and performance"
+        }
+
+        btnNow.setOnClickListener {
+            val launched = appUpdateRepo.launchDownload(this, releaseInfo.apkDownloadUrl)
+            if (launched) {
+                if (!releaseInfo.isMandatory) {
+                    sheet.dismiss()
+                }
+            } else {
+                Toast.makeText(this, "Could not open download link: ${releaseInfo.apkDownloadUrl}", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        btnLater.setOnClickListener {
+            appUpdateRepo.recordUpdateDismissed(releaseInfo.versionName)
+            sheet.dismiss()
+        }
+
+        closeBtn.setOnClickListener {
+            appUpdateRepo.recordUpdateDismissed(releaseInfo.versionName)
+            sheet.dismiss()
         }
 
         sheet.show()
@@ -3315,6 +3447,8 @@ class MainActivity : AppCompatActivity() {
         val tabCrowdText = view.findViewById<TextView>(R.id.adminTabCrowdText)
         val tabWeather = view.findViewById<MaterialCardView>(R.id.adminTabWeather)
         val tabWeatherText = view.findViewById<TextView>(R.id.adminTabWeatherText)
+        val tabAnalytics = view.findViewById<MaterialCardView>(R.id.adminTabAnalytics)
+        val tabAnalyticsText = view.findViewById<TextView>(R.id.adminTabAnalyticsText)
 
         val loadingProgress = view.findViewById<ProgressBar>(R.id.adminLoadingProgress)
         val sectionSubtitle = view.findViewById<TextView>(R.id.adminSectionSubtitle)
@@ -3322,9 +3456,19 @@ class MainActivity : AppCompatActivity() {
         val recyclerView = view.findViewById<RecyclerView>(R.id.adminContentRecyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        val analyticsView = view.findViewById<View>(R.id.adminAnalyticsView)
+        val analyticsLiveCount = view.findViewById<TextView>(R.id.analyticsLiveCount)
+        val analyticsActiveTodayCount = view.findViewById<TextView>(R.id.analyticsActiveTodayCount)
+        val analyticsNewTodayCount = view.findViewById<TextView>(R.id.analyticsNewTodayCount)
+        val analyticsTotalRegisteredCount = view.findViewById<TextView>(R.id.analyticsTotalRegisteredCount)
+        val analyticsVersionContainer = view.findViewById<LinearLayout>(R.id.analyticsVersionContainer)
+        val analyticsErrorText = view.findViewById<TextView>(R.id.analyticsErrorText)
+        val analyticsRefreshBtn = view.findViewById<View>(R.id.analyticsRefreshBtn)
+
         val pandalMap = pandals.all().associateBy { it.id }
 
-        var currentTab = "photos" // "photos", "crowd", "weather"
+        var currentTab = "photos" // "photos", "crowd", "weather", "analytics"
+        var livePresenceCleanup: (() -> Unit)? = null
 
         fun updateTabStyles() {
             if (currentTab == "photos") {
@@ -3362,11 +3506,26 @@ class MainActivity : AppCompatActivity() {
                 tabWeatherText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
                 tabWeatherText.setTypeface(null, android.graphics.Typeface.NORMAL)
             }
+
+            if (currentTab == "analytics") {
+                tabAnalytics.setCardBackgroundColor(ContextCompat.getColor(this, R.color.hopping_surface))
+                tabAnalytics.strokeColor = ContextCompat.getColor(this, R.color.hopping_outline)
+                tabAnalyticsText.setTextColor(ContextCompat.getColor(this, R.color.primary))
+                tabAnalyticsText.setTypeface(null, android.graphics.Typeface.BOLD)
+            } else {
+                tabAnalytics.setCardBackgroundColor(ContextCompat.getColor(this, R.color.surface_variant))
+                tabAnalytics.strokeColor = ContextCompat.getColor(this, R.color.outline)
+                tabAnalyticsText.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+                tabAnalyticsText.setTypeface(null, android.graphics.Typeface.NORMAL)
+            }
         }
 
         fun loadPhotos() {
             currentTab = "photos"
             updateTabStyles()
+            livePresenceCleanup?.invoke()
+            livePresenceCleanup = null
+            analyticsView.visibility = View.GONE
             loadingProgress.visibility = View.VISIBLE
             emptyText.visibility = View.GONE
             recyclerView.visibility = View.GONE
@@ -3421,6 +3580,9 @@ class MainActivity : AppCompatActivity() {
         fun loadCrowd() {
             currentTab = "crowd"
             updateTabStyles()
+            livePresenceCleanup?.invoke()
+            livePresenceCleanup = null
+            analyticsView.visibility = View.GONE
             loadingProgress.visibility = View.VISIBLE
             emptyText.visibility = View.GONE
             recyclerView.visibility = View.GONE
@@ -3471,6 +3633,9 @@ class MainActivity : AppCompatActivity() {
         fun loadWeather() {
             currentTab = "weather"
             updateTabStyles()
+            livePresenceCleanup?.invoke()
+            livePresenceCleanup = null
+            analyticsView.visibility = View.GONE
             loadingProgress.visibility = View.VISIBLE
             emptyText.visibility = View.GONE
             recyclerView.visibility = View.GONE
@@ -3518,9 +3683,118 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        fun loadAnalytics() {
+            currentTab = "analytics"
+            updateTabStyles()
+            livePresenceCleanup?.invoke()
+            livePresenceCleanup = null
+
+            recyclerView.visibility = View.GONE
+            emptyText.visibility = View.GONE
+            analyticsView.visibility = View.VISIBLE
+            loadingProgress.visibility = View.VISIBLE
+            analyticsErrorText.visibility = View.GONE
+            sectionSubtitle.text = "Loading analytics telemetry..."
+
+            // Set placeholder indicators so failed or loading requests never look like confirmed 0 users
+            analyticsLiveCount.text = "—"
+            analyticsActiveTodayCount.text = "—"
+            analyticsNewTodayCount.text = "—"
+            analyticsTotalRegisteredCount.text = "—"
+            analyticsVersionContainer.removeAllViews()
+
+            // Attach real-time listener for live users count
+            livePresenceCleanup = userAnalyticsRepo.listenToLiveUserCount(
+                onLiveCountChanged = { count ->
+                    mainHandler.post {
+                        analyticsLiveCount.text = count.toString()
+                    }
+                },
+                onError = { err ->
+                    mainHandler.post {
+                        Log.w("AdminAnalytics", "Live presence query error: ${err.message}")
+                        analyticsLiveCount.text = "—"
+                    }
+                }
+            )
+
+            // Fetch aggregate Firestore daily and total analytics
+            userAnalyticsRepo.fetchUserAnalyticsSummary { result ->
+                mainHandler.post {
+                    loadingProgress.visibility = View.GONE
+                    result.onSuccess { summary ->
+                        analyticsActiveTodayCount.text = summary.activeToday.toString()
+                        analyticsNewTodayCount.text = summary.newUsersToday.toString()
+                        analyticsTotalRegisteredCount.text = summary.totalRegistered.toString()
+                        sectionSubtitle.text = "Registered users: ${summary.totalRegistered} total"
+
+                        analyticsVersionContainer.removeAllViews()
+                        if (summary.versionDistribution.isEmpty()) {
+                            val emptyVer = TextView(this).apply {
+                                text = "No version telemetry yet recorded"
+                                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_tertiary))
+                                textSize = 12f
+                                setPadding(0, 4, 0, 4)
+                            }
+                            analyticsVersionContainer.addView(emptyVer)
+                        } else {
+                            val sortedVersions = summary.versionDistribution.entries.sortedByDescending { it.value }
+                            val totalRecorded = summary.versionDistribution.values.sum().coerceAtLeast(1)
+
+                            for ((ver, count) in sortedVersions) {
+                                val row = LinearLayout(this).apply {
+                                    orientation = LinearLayout.HORIZONTAL
+                                    layoutParams = LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.WRAP_CONTENT
+                                    ).apply {
+                                        topMargin = 4
+                                        bottomMargin = 4
+                                    }
+                                }
+
+                                val verLabel = TextView(this).apply {
+                                    text = "v$ver"
+                                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_primary))
+                                    textSize = 13f
+                                    setTypeface(null, android.graphics.Typeface.BOLD)
+                                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                                }
+
+                                val pct = (count * 100) / totalRecorded
+                                val countBadge = TextView(this).apply {
+                                    text = "$count users ($pct%)"
+                                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.text_secondary))
+                                    textSize = 12f
+                                }
+
+                                row.addView(verLabel)
+                                row.addView(countBadge)
+                                analyticsVersionContainer.addView(row)
+                            }
+                        }
+                    }.onFailure { error ->
+                        analyticsActiveTodayCount.text = "—"
+                        analyticsNewTodayCount.text = "—"
+                        analyticsTotalRegisteredCount.text = "—"
+                        sectionSubtitle.text = "Analytics telemetry unavailable"
+                        analyticsErrorText.visibility = View.VISIBLE
+                        analyticsErrorText.text = "Unable to load analytics: ${error.localizedMessage ?: "Missing or insufficient permissions."}"
+                    }
+                }
+            }
+        }
+
         tabPhotos.setOnClickListener { loadPhotos() }
         tabCrowd.setOnClickListener { loadCrowd() }
         tabWeather.setOnClickListener { loadWeather() }
+        tabAnalytics.setOnClickListener { loadAnalytics() }
+        analyticsRefreshBtn.setOnClickListener { loadAnalytics() }
+
+        sheet.setOnDismissListener {
+            livePresenceCleanup?.invoke()
+            livePresenceCleanup = null
+        }
 
         view.findViewById<View>(R.id.adminSignOutBtn).setOnClickListener {
             adminRepo.signOutAdmin(authRepo) {

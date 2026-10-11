@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "presence": {
+      ".read": "auth != null && (auth.token.admin === true || (root.child('admins').child(auth.uid).child('enabled').val() === true && root.child('admins').child(auth.uid).child('role').val() === 'admin'))",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || (root.child('admins').child(auth.uid).child('enabled').val() === true && root.child('admins').child(auth.uid).child('role').val() === 'admin'))",
+        "$sessionId": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.val() == null || (newData.hasChildren(['online', 'appVersion']) && newData.child('online').isBoolean() && newData.child('appVersion').isString())"
+        }
+      }
+    },
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true || (root.child('admins').child(auth.uid).child('enabled').val() === true && root.child('admins').child(auth.uid).child('role').val() === 'admin'))",
+        ".write": false
+      }
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

@@ -22,13 +22,14 @@ android {
     namespace 'com.pandalfinder'
     // MapLibre's current AndroidX transitive dependencies require API 34 to compile.
     compileSdk 34
+    buildToolsVersion '35.0.0'
 
     defaultConfig {
         applicationId "com.pandalfinder"
         minSdk 24
         targetSdk 33
-        versionCode 4
-        versionName "2.1.0"
+        versionCode 5
+        versionName "2.1.1"
         buildConfigField "String", "GOOGLE_ROUTES_API_KEY", "\"${routesApiKey.replace('\\', '\\\\').replace('\"', '\\\"')}\""
         buildConfigField "String", "ORS_API_KEY", "\"${orsApiKey.replace('\\', '\\\\').replace('\"', '\\\"')}\""
         buildConfigField "String", "SUPABASE_URL", "\"${supabaseUrl.replace('\\', '\\\\').replace('\"', '\\\"')}\""
@@ -39,8 +40,28 @@ android {
         buildConfig true
     }
 
+    signingConfigs {
+        release {
+            def defaultKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
+            def customKeystorePath = project.findProperty("KEYSTORE_PATH") ?: System.getenv("KEYSTORE_PATH")
+            storeFile = customKeystorePath ? file(customKeystorePath) : defaultKeystore
+            storePassword = (project.findProperty("KEYSTORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "android").toString()
+            keyAlias = (project.findProperty("KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "androiddebugkey").toString()
+            keyPassword = (project.findProperty("KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD") ?: "android").toString()
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -75,8 +96,9 @@ dependencies {
     // MapLibre renders OpenStreetMap-compatible map styles without a Google Maps key.
     implementation 'org.maplibre.gl:android-sdk:11.8.0'
 
-    // Firestore & Firebase Auth
+    // Firestore, Firebase Realtime Database & Firebase Auth
     implementation 'com.google.firebase:firebase-firestore-ktx:25.1.1'
+    implementation 'com.google.firebase:firebase-database-ktx:21.0.0'
     implementation 'com.google.firebase:firebase-auth-ktx:22.3.1'
     implementation 'androidx.exifinterface:exifinterface:1.3.6'
 
