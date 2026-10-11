@@ -60,7 +60,6 @@ Instead of switching between maps, search, notes, weather and community updates,
 
 </div>
 
-> Put your real app screenshots in `docs/images/` using these filenames.
 
 ---
 
@@ -208,7 +207,6 @@ PandalQuest uses a resilient multi-provider routing pipeline.
 | 🚶 Walking | `WALK` | `foot-walking` |
 | 🏍️ Two-wheeler / Cycling | `TWO_WHEELER` | `cycling-regular` |
 
-> **No fabricated distances.** If both routing providers fail, the UI shows `Route unavailable`.
 
 ---
 
