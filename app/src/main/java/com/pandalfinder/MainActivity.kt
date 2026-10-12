@@ -1374,7 +1374,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyCurrentFilters() {
         val pandalList = if (filterShowPandals) {
-            location?.let { pandals.nearby(it) } ?: pandals.all()
+            val baseList = location?.let { pandals.nearby(it) } ?: pandals.all()
+            selectedFestivalZone?.let { zone ->
+                baseList.filter { p ->
+                    zone.boundary?.contains(p.latitude, p.longitude) ?: p.area.equals(zone.name, ignoreCase = true)
+                }
+            } ?: baseList
         } else {
             emptyList()
         }
@@ -4245,22 +4250,43 @@ class MainActivity : AppCompatActivity() {
         rv.layoutManager = LinearLayoutManager(this)
 
         val zoneList = zones.getZones()
-        rv.adapter = FestivalZoneAdapter(
-            zoneList,
-            selectedZoneName = selectedFestivalZone?.name,
-            onExplore = { zone ->
-                sheet.dismiss()
-                selectZone(zone)
-            },
-            onAddToHopping = { zone ->
-                val topPandals = zone.pandals.take(4)
-                var added = 0
-                topPandals.forEach { if (hopping.addPandal(it)) added++ }
-                sheet.dismiss()
-                selectTab(isMap = false)
-                Toast.makeText(this, "Added $added pandals from ${zone.name} to Trail", Toast.LENGTH_SHORT).show()
+        val updateZoneAdapter: (List<com.pandalfinder.data.FestivalZone>) -> Unit = { list ->
+            rv.adapter = FestivalZoneAdapter(
+                list,
+                selectedZoneName = selectedFestivalZone?.name,
+                onExplore = { zone ->
+                    sheet.dismiss()
+                    selectZone(zone)
+                },
+                onAddToHopping = { zone ->
+                    val topPandals = zone.pandals.take(4)
+                    var added = 0
+                    topPandals.forEach { if (hopping.addPandal(it)) added++ }
+                    sheet.dismiss()
+                    selectTab(isMap = false)
+                    Toast.makeText(this, "Added $added pandals from ${zone.name} to Trail", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+
+        updateZoneAdapter(zoneList)
+
+        val searchZonesInput = view.findViewById<android.widget.EditText>(R.id.searchZonesInput)
+        searchZonesInput?.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = s?.toString()?.trim() ?: ""
+                val filtered = if (q.isEmpty()) zoneList else {
+                    zoneList.filter { z ->
+                        z.name.contains(q, ignoreCase = true) ||
+                        z.description.contains(q, ignoreCase = true) ||
+                        (z.boundary?.aliases?.any { it.contains(q.lowercase(java.util.Locale.US)) } == true)
+                    }
+                }
+                updateZoneAdapter(filtered)
             }
-        )
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
 
         sheet.show()
     }

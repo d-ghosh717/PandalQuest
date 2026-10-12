@@ -1,0 +1,67 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "new_town",
+    "name": "New Town",
+    "aliases": [
+      "new town",
+      "newtown",
+      "rajarhat new town",
+      "action area",
+      "action area 1",
+      "action area 2",
+      "action area 3",
+      "eco park"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "New Town regional zone (Action Area I, II, III planned modern installations)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.444,
+          22.605
+        ],
+        [
+          88.46,
+          22.618
+        ],
+        [
+          88.485,
+          22.61
+        ],
+        [
+          88.51,
+          22.59
+        ],
+        [
+          88.51,
+          22.56
+        ],
+        [
+          88.485,
+          22.55
+        ],
+        [
+          88.46,
+          22.555
+        ],
+        [
+          88.444,
+          22.57
+        ],
+        [
+          88.442,
+          22.585
+        ],
+        [
+          88.444,
+          22.605
+        ]
+      ]
+    ]
+  }
+}

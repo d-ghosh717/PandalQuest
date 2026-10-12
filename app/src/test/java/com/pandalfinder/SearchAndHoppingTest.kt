@@ -268,7 +268,12 @@ class SearchAndHoppingTest {
         // 3. Salt Lake boundary
         val saltLakeBoundary = boundaryRepo.findBoundaryForQuery("salt lake")
         assertNotNull("Recognized 'salt lake' query must resolve to an AreaBoundary", saltLakeBoundary)
-        assertEquals("Salt Lake & East Kolkata", saltLakeBoundary!!.name)
+        assertEquals("Salt Lake / Bidhannagar", saltLakeBoundary!!.name)
+
+        // 4. New Town boundary
+        val newTownBoundary = boundaryRepo.findBoundaryForQuery("new town")
+        assertNotNull("Recognized 'new town' query must resolve to an AreaBoundary", newTownBoundary)
+        assertEquals("New Town", newTownBoundary!!.name)
     }
 
     @Test

@@ -1,0 +1,92 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "west_kolkata",
+    "name": "West Kolkata",
+    "aliases": [
+      "west kolkata",
+      "west",
+      "paschim kolkata",
+      "maheshtala",
+      "budge budge",
+      "akra",
+      "metiabruz",
+      "garden reach",
+      "batanagar"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "West Kolkata regional zone (Maheshtala, Budge Budge, Akra & Garden Reach)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.23,
+          22.556
+        ],
+        [
+          88.2421,
+          22.5548
+        ],
+        [
+          88.2582,
+          22.5413
+        ],
+        [
+          88.269,
+          22.5375
+        ],
+        [
+          88.285,
+          22.536
+        ],
+        [
+          88.305,
+          22.53
+        ],
+        [
+          88.306,
+          22.505
+        ],
+        [
+          88.302,
+          22.48
+        ],
+        [
+          88.285,
+          22.465
+        ],
+        [
+          88.26,
+          22.455
+        ],
+        [
+          88.22,
+          22.46
+        ],
+        [
+          88.19,
+          22.475
+        ],
+        [
+          88.18,
+          22.495
+        ],
+        [
+          88.2,
+          22.52
+        ],
+        [
+          88.215,
+          22.54
+        ],
+        [
+          88.23,
+          22.556
+        ]
+      ]
+    ]
+  }
+}

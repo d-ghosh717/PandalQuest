@@ -27,44 +27,50 @@ class FestivalZoneRepository(
         val allPandals = pandalRepository.all()
         val zoneGroups = mutableMapOf<String, MutableList<Pandal>>()
 
+        val descriptions = mapOf(
+            "North Kolkata" to "Traditional, heritage & classical theme barowari pujas",
+            "Central Kolkata" to "Historic artistic illumination and grand community spectacles",
+            "South Kolkata" to "Innovative thematic mega pandals and vibrant cultural hubs",
+            "Salt Lake / Bidhannagar" to "Spacious modern installations and planned park & block pandals",
+            "New Town" to "Modern planned city mega architecture and futuristic installations",
+            "New Garia & Surroundings" to "Vibrant southern community celebrations and cultural centers",
+            "East Kolkata" to "Dynamic neighborhood pujas along EM Bypass and eastern corridors",
+            "Howrah" to "Riverside celebrations and historic neighborhood pujas",
+            "West Kolkata" to "Traditional riverside community pujas in Maheshtala and Garden Reach",
+            "Barrackpore" to "Historic northern suburban celebrations along the riverbank",
+            "South 24 Parganas" to "Expansive peri-urban and southern district festive gatherings"
+        )
+
+        descriptions.keys.forEach { name ->
+            zoneGroups[name] = mutableListOf()
+        }
+
         allPandals.forEach { p ->
             val zoneName = p.area
             zoneGroups.getOrPut(zoneName) { mutableListOf() }.add(p)
         }
 
-        val descriptions = mapOf(
-            "North Kolkata" to "Traditional, heritage & classical theme barowari pujas",
-            "Central Kolkata" to "Historic artistic illumination and grand community spectacles",
-            "South Kolkata" to "Innovative thematic mega pandals and vibrant cultural hubs",
-            "Salt Lake & East Kolkata" to "Spacious modern installations and planned park pandals",
-            "Howrah" to "Riverside celebrations and historic neighborhood pujas"
-        )
-
         return zoneGroups.mapNotNull { (name, list) ->
-            if (list.isEmpty()) return@mapNotNull null
-            val minLat = list.minOf { it.latitude }
-            val maxLat = list.maxOf { it.latitude }
-            val minLng = list.minOf { it.longitude }
-            val maxLng = list.maxOf { it.longitude }
-            val avgLat = list.map { it.latitude }.average()
-            val avgLng = list.map { it.longitude }.average()
+            val boundary = boundaryRepository?.getBoundaryForZone(name)
+            if (list.isEmpty() && boundary == null) return@mapNotNull null
 
-            val bounds = LatLngBounds.Builder()
-                .include(LatLng(minLat, minLng))
-                .include(LatLng(maxLat, maxLng))
+            val bounds = boundary?.toMapLibreBounds() ?: LatLngBounds.Builder()
+                .include(LatLng(list.minOf { it.latitude }, list.minOf { it.longitude }))
+                .include(LatLng(list.maxOf { it.latitude }, list.maxOf { it.longitude }))
                 .build()
 
-            val boundary = boundaryRepository?.getBoundaryForZone(name)
+            val centerLat = if (list.isNotEmpty()) list.map { it.latitude }.average() else (bounds.latitudeNorth + bounds.latitudeSouth) / 2
+            val centerLng = if (list.isNotEmpty()) list.map { it.longitude }.average() else (bounds.longitudeEast + bounds.longitudeWest) / 2
 
             FestivalZone(
                 name = name,
                 description = descriptions[name] ?: "Durga Puja festival zone",
                 pandals = list,
-                centerLat = avgLat,
-                centerLng = avgLng,
+                centerLat = centerLat,
+                centerLng = centerLng,
                 bounds = bounds,
                 boundary = boundary
             )
-        }.sortedByDescending { it.count }
+        }.sortedWith(compareByDescending<FestivalZone> { it.count }.thenBy { it.name })
     }
 }

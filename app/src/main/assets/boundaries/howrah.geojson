@@ -6,20 +6,18 @@
     "aliases": [
       "howrah",
       "haora",
-      "howrah municipal corporation",
-      "west kolkata",
-      "howrah city"
+      "shibpur",
+      "santragachi",
+      "salkia",
+      "bally",
+      "belur",
+      "kadamtala",
+      "botanical garden"
     ],
     "isOfficialAdministrative": true,
     "boundaryType": "OFFICIAL_ADMINISTRATIVE",
-    "description": "Howrah Municipal Corporation official administrative boundary"
+    "description": "Howrah regional zone (Howrah Municipal Corporation & riverside neighborhood pujas)"
   },
-  "bbox": [
-    88.2690739,
-    22.5492832,
-    88.3651207,
-    22.641051
-  ],
   "geometry": {
     "type": "Polygon",
     "coordinates": [
@@ -345,23 +343,23 @@
           22.6232411
         ],
         [
-          88.3215594,
+          88.315,
           22.6218546
         ],
         [
-          88.3241343,
+          88.315,
           22.618527
         ],
         [
-          88.3236623,
+          88.315,
           22.617299
         ],
         [
-          88.3220958,
+          88.315,
           22.6156351
         ],
         [
-          88.3208942,
+          88.315,
           22.6146646
         ],
         [

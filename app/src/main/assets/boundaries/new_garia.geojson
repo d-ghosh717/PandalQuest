@@ -1,0 +1,69 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "new_garia",
+    "name": "New Garia & Surroundings",
+    "aliases": [
+      "new garia",
+      "garia",
+      "new garia & surroundings",
+      "patuli",
+      "santoshpur",
+      "baghajatin",
+      "baishnabghata",
+      "sonarpur",
+      "naktala",
+      "briji"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "New Garia & Surroundings regional zone (Garia, Patuli, Santoshpur & Baghajatin cultural hubs)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.364,
+          22.496
+        ],
+        [
+          88.384,
+          22.496
+        ],
+        [
+          88.398,
+          22.494
+        ],
+        [
+          88.415,
+          22.485
+        ],
+        [
+          88.425,
+          22.465
+        ],
+        [
+          88.42,
+          22.435
+        ],
+        [
+          88.395,
+          22.435
+        ],
+        [
+          88.37,
+          22.445
+        ],
+        [
+          88.364,
+          22.465
+        ],
+        [
+          88.364,
+          22.496
+        ]
+      ]
+    ]
+  }
+}

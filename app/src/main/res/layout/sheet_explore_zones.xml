@@ -117,12 +117,45 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Search Zones Input -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_glass_search_bar">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="14dp"
+            android:contentDescription="Search"
+            android:src="@drawable/ic_search"
+            app:tint="@color/text_tertiary" />
+
+        <EditText
+            android:id="@+id/searchZonesInput"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:fontFamily="@font/inter"
+            android:gravity="center_vertical"
+            android:hint="Search zones (e.g. Howrah, South Kolkata)"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:paddingStart="42dp"
+            android:paddingEnd="14dp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_tertiary"
+            android:textSize="14sp" />
+    </FrameLayout>
+
     <!-- Zones List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/zonesRecyclerView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
         android:maxHeight="360dp"
         android:clipToPadding="false" />
 

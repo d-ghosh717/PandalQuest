@@ -1,0 +1,57 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "south_24_parganas",
+    "name": "South 24 Parganas",
+    "aliases": [
+      "south 24 parganas",
+      "south 24 pgs",
+      "baruipur",
+      "diamond harbour",
+      "canning",
+      "joynagar"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "South 24 Parganas regional zone (Baruipur & southern suburban belt)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.35,
+          22.42
+        ],
+        [
+          88.45,
+          22.42
+        ],
+        [
+          88.48,
+          22.39
+        ],
+        [
+          88.47,
+          22.34
+        ],
+        [
+          88.41,
+          22.33
+        ],
+        [
+          88.36,
+          22.35
+        ],
+        [
+          88.34,
+          22.39
+        ],
+        [
+          88.35,
+          22.42
+        ]
+      ]
+    ]
+  }
+}

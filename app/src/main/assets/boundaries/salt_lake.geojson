@@ -1,0 +1,78 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "salt_lake",
+    "name": "Salt Lake / Bidhannagar",
+    "aliases": [
+      "salt lake",
+      "saltlake",
+      "bidhannagar",
+      "salt lake / bidhannagar",
+      "salt lake city",
+      "karunamayee",
+      "sector 1",
+      "sector 2",
+      "sector 3",
+      "sector 5",
+      "sector v"
+    ],
+    "isOfficialAdministrative": true,
+    "boundaryType": "OFFICIAL_ADMINISTRATIVE",
+    "description": "Salt Lake / Bidhannagar regional zone (Sectors I to V planned park & block pandals)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.398,
+          22.592
+        ],
+        [
+          88.406,
+          22.603
+        ],
+        [
+          88.42,
+          22.604
+        ],
+        [
+          88.435,
+          22.601
+        ],
+        [
+          88.442,
+          22.592
+        ],
+        [
+          88.443,
+          22.578
+        ],
+        [
+          88.441,
+          22.568
+        ],
+        [
+          88.43,
+          22.562
+        ],
+        [
+          88.408,
+          22.563
+        ],
+        [
+          88.4,
+          22.572
+        ],
+        [
+          88.398,
+          22.582
+        ],
+        [
+          88.398,
+          22.592
+        ]
+      ]
+    ]
+  }
+}

@@ -91,11 +91,16 @@ class AreaBoundaryRepository(private val context: Context? = null) {
     private fun loadBoundaries() {
         val boundaryFiles = listOf(
             "howrah.geojson",
-            "south_kolkata.geojson",
-            "north_kolkata.geojson",
+            "west_kolkata.geojson",
+            "south_24_parganas.geojson",
+            "barrackpore.geojson",
+            "new_town.geojson",
+            "salt_lake.geojson",
+            "new_garia.geojson",
+            "east_kolkata.geojson",
             "central_kolkata.geojson",
-            "salt_lake_east.geojson",
-            "kolkata.geojson"
+            "north_kolkata.geojson",
+            "south_kolkata.geojson"
         )
 
         for (fileName in boundaryFiles) {
@@ -272,19 +277,39 @@ class AreaBoundaryRepository(private val context: Context? = null) {
             return "Howrah"
         }
 
-        val saltLake = boundaries["salt_lake_east"]
-        if (saltLake != null && (saltLake.contains(lat, lng) || (lng > 88.400 && lat > 22.560))) {
-            return "Salt Lake & East Kolkata"
+        val west = boundaries["west_kolkata"]
+        if (west != null && west.contains(lat, lng)) {
+            return "West Kolkata"
         }
 
-        val south = boundaries["south_kolkata"]
-        if (south != null && south.contains(lat, lng)) {
-            return "South Kolkata"
+        val south24 = boundaries["south_24_parganas"]
+        if (south24 != null && south24.contains(lat, lng)) {
+            return "South 24 Parganas"
         }
 
-        val north = boundaries["north_kolkata"]
-        if (north != null && north.contains(lat, lng)) {
-            return "North Kolkata"
+        val barrackpore = boundaries["barrackpore"]
+        if (barrackpore != null && barrackpore.contains(lat, lng)) {
+            return "Barrackpore"
+        }
+
+        val newTown = boundaries["new_town"]
+        if (newTown != null && newTown.contains(lat, lng)) {
+            return "New Town"
+        }
+
+        val saltLake = boundaries["salt_lake"]
+        if (saltLake != null && saltLake.contains(lat, lng)) {
+            return "Salt Lake / Bidhannagar"
+        }
+
+        val newGaria = boundaries["new_garia"]
+        if (newGaria != null && newGaria.contains(lat, lng)) {
+            return "New Garia & Surroundings"
+        }
+
+        val eastKolkata = boundaries["east_kolkata"]
+        if (eastKolkata != null && eastKolkata.contains(lat, lng)) {
+            return "East Kolkata"
         }
 
         val central = boundaries["central_kolkata"]
@@ -292,22 +317,30 @@ class AreaBoundaryRepository(private val context: Context? = null) {
             return "Central Kolkata"
         }
 
-        val kolkata = boundaries["kolkata"]
-        if (kolkata != null && kolkata.contains(lat, lng)) {
-            return when {
-                lat < 22.545 -> "South Kolkata"
-                lat >= 22.580 -> "North Kolkata"
-                else -> "Central Kolkata"
-            }
+        val north = boundaries["north_kolkata"]
+        if (north != null && north.contains(lat, lng)) {
+            return "North Kolkata"
         }
 
-        // Geometric fallback
+        val south = boundaries["south_kolkata"]
+        if (south != null && south.contains(lat, lng)) {
+            return "South Kolkata"
+        }
+
+        // Geometric boundary fallback based on verified regional corridors
         return when {
-            lng < 88.330 && lat in 22.56..22.65 -> "Howrah"
-            lng > 88.400 -> "Salt Lake & East Kolkata"
-            lat >= 22.585 -> "North Kolkata"
-            lat >= 22.545 -> "Central Kolkata"
-            else -> "South Kolkata"
+            lng < 88.330 && lat in 22.55..22.64 -> "Howrah"
+            lat < 22.42 -> "South 24 Parganas"
+            lng < 88.30 && lat < 22.54 -> "West Kolkata"
+            lat >= 22.735 && lng in 88.33..88.43 -> "Barrackpore"
+            lng >= 88.445 && lat in 22.56..22.62 -> "New Town"
+            lng in 88.400..88.445 && lat in 22.565..22.605 -> "Salt Lake / Bidhannagar"
+            lat < 22.496 && lng >= 88.365 -> "New Garia & Surroundings"
+            lng in 88.385..88.435 && lat in 22.52..22.565 -> "East Kolkata"
+            lat in 22.542..22.583 && lng in 88.330..88.378 -> "Central Kolkata"
+            lat >= 22.580 -> "North Kolkata"
+            lat in 22.46..22.545 -> "South Kolkata"
+            else -> "Area unverified"
         }
     }
 

@@ -5,6 +5,7 @@
     "name": "North Kolkata",
     "aliases": [
       "north kolkata",
+      "north",
       "uttar kolkata",
       "north calcutta",
       "bagbazar",
@@ -12,75 +13,107 @@
       "sovabazar",
       "kumartuli",
       "hatibagan",
-      "tala"
+      "tala",
+      "paikpara",
+      "belgachia",
+      "baranagar",
+      "belgharia",
+      "kamarhati",
+      "dum dum",
+      "dum dum park",
+      "lake town",
+      "bangur",
+      "ultadanga",
+      "maniktala",
+      "beliaghata"
     ],
     "isOfficialAdministrative": false,
     "boundaryType": "REGIONAL_ZONE",
-    "description": "North Kolkata regional zone (KMC Northern Boroughs)"
+    "description": "North Kolkata regional zone (Shyambazar, Sovabazar, Dum Dum, Belgharia, Kamarhati, Ultadanga & heritage classical pujas)"
   },
   "geometry": {
     "type": "Polygon",
     "coordinates": [
       [
         [
-          88.40146562661658,
+          88.355,
+          22.583
+        ],
+        [
+          88.352,
+          22.595
+        ],
+        [
+          88.356,
+          22.6
+        ],
+        [
+          88.364,
+          22.605
+        ],
+        [
+          88.368,
+          22.619
+        ],
+        [
+          88.36,
+          22.645
+        ],
+        [
+          88.362,
+          22.67
+        ],
+        [
+          88.378,
+          22.672
+        ],
+        [
+          88.395,
+          22.655
+        ],
+        [
+          88.405,
+          22.635
+        ],
+        [
+          88.435,
+          22.616
+        ],
+        [
+          88.435,
+          22.608
+        ],
+        [
+          88.405,
+          22.601
+        ],
+        [
+          88.398,
+          22.59
+        ],
+        [
+          88.4,
           22.58
         ],
         [
-          88.3968592,
-          22.5897161
+          88.398,
+          22.564
         ],
         [
-          88.3916875,
-          22.5958234
+          88.38,
+          22.564
         ],
         [
-          88.3937817,
-          22.6080359
+          88.378,
+          22.575
         ],
         [
-          88.3925087,
-          22.6287017
+          88.375,
+          22.583
         ],
         [
-          88.3712751,
-          22.6325679
-        ],
-        [
-          88.3643609,
-          22.6315403
-        ],
-        [
-          88.3682968,
-          22.6193594
-        ],
-        [
-          88.3687142,
-          22.6142914
-        ],
-        [
-          88.3677802,
-          22.6091033
-        ],
-        [
-          88.3635684,
-          22.6037698
-        ],
-        [
-          88.3552546,
-          22.5982689
-        ],
-        [
-          88.3519283,
-          22.594501
-        ],
-        [
-          88.34723172574775,
-          22.58
-        ],
-        [
-          88.40146562661658,
-          22.58
+          88.355,
+          22.583
         ]
       ]
     ]

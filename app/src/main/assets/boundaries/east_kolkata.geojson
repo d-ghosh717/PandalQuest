@@ -1,0 +1,64 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "east_kolkata",
+    "name": "East Kolkata",
+    "aliases": [
+      "east kolkata",
+      "east",
+      "purba kolkata",
+      "tangra",
+      "topsia",
+      "tiljala",
+      "dhapa",
+      "science city",
+      "em bypass east"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "East Kolkata regional zone (Tangra, Topsia, Tiljala & EM Bypass corridor)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.383,
+          22.56
+        ],
+        [
+          88.406,
+          22.56
+        ],
+        [
+          88.42,
+          22.56
+        ],
+        [
+          88.435,
+          22.545
+        ],
+        [
+          88.435,
+          22.52
+        ],
+        [
+          88.41,
+          22.515
+        ],
+        [
+          88.385,
+          22.52
+        ],
+        [
+          88.382,
+          22.545
+        ],
+        [
+          88.383,
+          22.56
+        ]
+      ]
+    ]
+  }
+}

@@ -33,9 +33,9 @@ class PandalRepository(context: Context? = null) {
     companion object {
         private const val TAG = "PandalRepository"
         
-        /** Sanity bounding box covering Greater Kolkata, Howrah, Salt Lake, and New Town */
+        /** Sanity bounding box covering Greater Kolkata, Howrah, Salt Lake, New Town, and Barrackpore */
         fun isValidKolkataCoordinate(lat: Double, lng: Double): Boolean {
-            return lat in 22.35..22.75 && lng in 88.20..88.55
+            return lat in 22.35..22.85 && lng in 88.20..88.55
         }
     }
 
@@ -54,8 +54,7 @@ class PandalRepository(context: Context? = null) {
                 id = pandal.name.lowercase(Locale.US)
                     .replace(Regex("[^a-z0-9]+"), "-")
                     .trim('-') + "-${"%.5f".format(Locale.US, pandal.latitude)}"
-                , area = pandal.area.takeUnless { it == "Kolkata" || it == "West Kolkata / Howrah" }
-                    ?: boundaryRepo.classifyPandal(pandal.latitude, pandal.longitude)
+                , area = boundaryRepo.classifyPandal(pandal.latitude, pandal.longitude)
             )
         }
         .distinctBy { "${it.name.lowercase(Locale.US)}:${it.latitude}:${it.longitude}" }
