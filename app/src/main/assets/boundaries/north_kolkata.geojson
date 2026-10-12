@@ -1,0 +1,88 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "north_kolkata",
+    "name": "North Kolkata",
+    "aliases": [
+      "north kolkata",
+      "uttar kolkata",
+      "north calcutta",
+      "bagbazar",
+      "shyambazar",
+      "sovabazar",
+      "kumartuli",
+      "hatibagan",
+      "tala"
+    ],
+    "isOfficialAdministrative": false,
+    "boundaryType": "REGIONAL_ZONE",
+    "description": "North Kolkata regional zone (KMC Northern Boroughs)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          88.40146562661658,
+          22.58
+        ],
+        [
+          88.3968592,
+          22.5897161
+        ],
+        [
+          88.3916875,
+          22.5958234
+        ],
+        [
+          88.3937817,
+          22.6080359
+        ],
+        [
+          88.3925087,
+          22.6287017
+        ],
+        [
+          88.3712751,
+          22.6325679
+        ],
+        [
+          88.3643609,
+          22.6315403
+        ],
+        [
+          88.3682968,
+          22.6193594
+        ],
+        [
+          88.3687142,
+          22.6142914
+        ],
+        [
+          88.3677802,
+          22.6091033
+        ],
+        [
+          88.3635684,
+          22.6037698
+        ],
+        [
+          88.3552546,
+          22.5982689
+        ],
+        [
+          88.3519283,
+          22.594501
+        ],
+        [
+          88.34723172574775,
+          22.58
+        ],
+        [
+          88.40146562661658,
+          22.58
+        ]
+      ]
+    ]
+  }
+}

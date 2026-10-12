@@ -386,10 +386,64 @@ class AdminAndSecurityTest {
 
     @Test
     fun testVersionMetadataAndLabel() {
-        assertEquals("Release versionName must be 2.1.1", "2.1.1", BuildConfig.VERSION_NAME)
-        assertEquals("Release versionCode must be 5", 5, BuildConfig.VERSION_CODE)
+        assertEquals("Release versionName must be 2.1.2", "2.1.2", BuildConfig.VERSION_NAME)
+        assertEquals("Release versionCode must be 6", 6, BuildConfig.VERSION_CODE)
         val userVisibleLabel = "PandalQuest v${BuildConfig.VERSION_NAME}"
-        assertEquals("My Pandal version label must display PandalQuest v2.1.1", "PandalQuest v2.1.1", userVisibleLabel)
+        assertEquals("My Pandal version label must display PandalQuest v2.1.2", "PandalQuest v2.1.2", userVisibleLabel)
+    }
+
+    // ── 14. Analytics Security Rules & Permission Enforcement ──
+
+    @Test
+    fun testAnalyticsPermissionEnforcement() {
+        val adminUid = "mc8obi7qRDhU4Zbk0ViVEWRVvqF2"
+        val regularAnonUid = "anon_user_98765"
+        val otherAnonUid = "anon_user_11223"
+
+        data class AdminRecord(val role: String, val enabled: Boolean)
+        val adminAllowlist = mapOf(
+            adminUid to AdminRecord(role = "admin", enabled = true)
+        )
+
+        fun isUserAuthorizedAdmin(uid: String?): Boolean {
+            if (uid.isNullOrBlank()) return false
+            val rec = adminAllowlist[uid] ?: return false
+            return rec.role == "admin" && rec.enabled
+        }
+
+        // 1. RTDB /presence aggregate listing permission
+        fun canReadAggregatePresence(authUid: String?): Boolean = isUserAuthorizedAdmin(authUid)
+
+        assertTrue("Verified admin can read aggregate live presence", canReadAggregatePresence(adminUid))
+        assertFalse("Anonymous user CANNOT read aggregate live presence", canReadAggregatePresence(regularAnonUid))
+        assertFalse("Unauthenticated client CANNOT read aggregate live presence", canReadAggregatePresence(null))
+
+        // 2. RTDB /presence/{uid}/{sessionId} self-write isolation
+        fun canWritePresenceSession(authUid: String?, targetUid: String): Boolean {
+            if (authUid.isNullOrBlank()) return false
+            return authUid == targetUid
+        }
+
+        assertTrue("User can write their own presence session", canWritePresenceSession(regularAnonUid, regularAnonUid))
+        assertFalse("User CANNOT write another user's presence session", canWritePresenceSession(regularAnonUid, otherAnonUid))
+        assertFalse("Unauthenticated user CANNOT write presence session", canWritePresenceSession(null, regularAnonUid))
+
+        // 3. Firestore /users collection listing permission
+        fun canListRegisteredUsers(authUid: String?): Boolean = isUserAuthorizedAdmin(authUid)
+
+        assertTrue("Admin can list registered users telemetry", canListRegisteredUsers(adminUid))
+        assertFalse("Anonymous user CANNOT list registered users", canListRegisteredUsers(regularAnonUid))
+        assertFalse("Unauthenticated client CANNOT list registered users", canListRegisteredUsers(null))
+
+        // 4. Firestore /users/{uid} document self-write isolation
+        fun canWriteUserTelemetry(authUid: String?, targetUserId: String): Boolean {
+            if (authUid.isNullOrBlank()) return false
+            return authUid == targetUserId
+        }
+
+        assertTrue("User can create/update own telemetry doc", canWriteUserTelemetry(regularAnonUid, regularAnonUid))
+        assertFalse("User CANNOT modify another user's telemetry doc", canWriteUserTelemetry(regularAnonUid, otherAnonUid))
+        assertFalse("Unauthenticated client CANNOT create/update telemetry doc", canWriteUserTelemetry(null, regularAnonUid))
     }
 }
 

@@ -312,4 +312,112 @@ class AppUpdateTest {
         assertEquals(26708401L, release.apkSize)
         assertFalse(release.isMandatory)
     }
+
+    // ── 9. v2.1.2 Future Release Discovery & Comparison ──
+
+    @Test
+    fun testV212DiscoversFutureReleases() {
+        val futureReleaseV213 = AppReleaseInfo(
+            versionName = "2.1.3",
+            versionCode = 7,
+            releaseTitle = "v2.1.3",
+            releaseNotes = "New features",
+            apkDownloadUrl = "https://github.com/d-ghosh717/PandalQuest/releases/download/v2.1.3/PandalQuest-v2.1.3.apk",
+            apkFileName = "PandalQuest-v2.1.3.apk",
+            apkSize = 27000000L,
+            publishedAt = "2026-10-15T00:00:00Z",
+            isMandatory = false,
+            minSupportedVersionCode = 1,
+            minSupportedVersionName = null
+        )
+
+        // Installed v2.1.2 (versionCode 6) discovers v2.1.3 (versionCode 7)
+        val updateAvailable = repo.isUpdateAvailable(
+            installedVersionName = "2.1.2",
+            installedVersionCode = 6,
+            remoteRelease = futureReleaseV213
+        )
+        assertTrue("Installed v2.1.2 must discover newer v2.1.3 release", updateAvailable)
+
+        // Installed v2.1.2 (versionCode 6) vs remote v2.1.2 (versionCode 6) -> No update
+        val sameVersion = AppReleaseInfo(
+            versionName = "2.1.2",
+            versionCode = 6,
+            releaseTitle = "v2.1.2",
+            releaseNotes = "Current version",
+            apkDownloadUrl = "https://github.com/d-ghosh717/PandalQuest/releases/download/v2.1.2/PandalQuest-v2.1.2.apk",
+            apkFileName = "PandalQuest-v2.1.2.apk",
+            apkSize = 27000000L,
+            publishedAt = "2026-10-12T00:00:00Z",
+            isMandatory = false,
+            minSupportedVersionCode = 1,
+            minSupportedVersionName = null
+        )
+        assertFalse("Installed v2.1.2 must not trigger update prompt for v2.1.2", repo.isUpdateAvailable("2.1.2", 6, sameVersion))
+    }
+
+    @Test
+    fun testMultipleReleasesSelectsHighestStableVersion() {
+        val multiReleasePayload = """
+        [
+          {
+            "tag_name": "v2.1.0",
+            "name": "v2.1.0",
+            "draft": false,
+            "prerelease": false,
+            "assets": [
+              {
+                "name": "PandalQuest-v2.1.0.apk",
+                "browser_download_url": "https://github.com/d-ghosh717/PandalQuest/releases/download/v2.1.0/PandalQuest-v2.1.0.apk"
+              }
+            ]
+          },
+          {
+            "tag_name": "v2.1.2",
+            "name": "v2.1.2",
+            "draft": false,
+            "prerelease": false,
+            "assets": [
+              {
+                "name": "PandalQuest-v2.1.2.apk",
+                "browser_download_url": "https://github.com/d-ghosh717/PandalQuest/releases/download/v2.1.2/PandalQuest-v2.1.2.apk"
+              }
+            ]
+          },
+          {
+            "tag_name": "v2.1.1",
+            "name": "v2.1.1",
+            "draft": false,
+            "prerelease": false,
+            "assets": [
+              {
+                "name": "PandalQuest-v2.1.1.apk",
+                "browser_download_url": "https://github.com/d-ghosh717/PandalQuest/releases/download/v2.1.1/PandalQuest-v2.1.1.apk"
+              }
+            ]
+          }
+        ]
+        """.trimIndent()
+
+        val parsed = repo.parseReleases(multiReleasePayload)
+        assertEquals(3, parsed.size)
+        // First element must be the newest/highest version (v2.1.2)
+        assertEquals("2.1.2", parsed.first().versionName)
+        assertEquals(6, parsed.first().versionCode)
+    }
+
+    @Test
+    fun testTagParsingVariations() {
+        val v1 = SemanticVersion.parse("PandalQuest-v2.1.2")
+        assertNotNull(v1)
+        assertEquals(SemanticVersion(2, 1, 2), v1)
+
+        val v2 = SemanticVersion.parse("release/v2.1.2")
+        assertNotNull(v2)
+        assertEquals(SemanticVersion(2, 1, 2), v2)
+
+        val v3 = SemanticVersion.parse("v2.1.2")
+        assertNotNull(v3)
+        assertEquals(SemanticVersion(2, 1, 2), v3)
+    }
 }

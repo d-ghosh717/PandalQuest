@@ -11,25 +11,24 @@ data class FestivalZone(
     val pandals: List<Pandal>,
     val centerLat: Double,
     val centerLng: Double,
-    val bounds: LatLngBounds
+    val bounds: LatLngBounds,
+    val boundary: AreaBoundary? = null
 ) {
     val count: Int get() = pandals.size
+    val hasBoundary: Boolean get() = boundary != null
 }
 
-class FestivalZoneRepository(private val pandalRepository: PandalRepository) {
+class FestivalZoneRepository(
+    private val pandalRepository: PandalRepository,
+    private val boundaryRepository: AreaBoundaryRepository? = null
+) {
 
     fun getZones(): List<FestivalZone> {
         val allPandals = pandalRepository.all()
         val zoneGroups = mutableMapOf<String, MutableList<Pandal>>()
 
         allPandals.forEach { p ->
-            val zoneName = when {
-                p.longitude < 88.342 -> "West Kolkata / Howrah"
-                p.longitude > 88.400 -> "Salt Lake & East Kolkata"
-                p.latitude >= 22.585 -> "North Kolkata"
-                p.latitude >= 22.545 -> "Central Kolkata"
-                else -> "South Kolkata"
-            }
+            val zoneName = p.area
             zoneGroups.getOrPut(zoneName) { mutableListOf() }.add(p)
         }
 
@@ -38,7 +37,7 @@ class FestivalZoneRepository(private val pandalRepository: PandalRepository) {
             "Central Kolkata" to "Historic artistic illumination and grand community spectacles",
             "South Kolkata" to "Innovative thematic mega pandals and vibrant cultural hubs",
             "Salt Lake & East Kolkata" to "Spacious modern installations and planned park pandals",
-            "West Kolkata / Howrah" to "Riverside celebrations and historic neighborhood pujas"
+            "Howrah" to "Riverside celebrations and historic neighborhood pujas"
         )
 
         return zoneGroups.mapNotNull { (name, list) ->
@@ -55,13 +54,16 @@ class FestivalZoneRepository(private val pandalRepository: PandalRepository) {
                 .include(LatLng(maxLat, maxLng))
                 .build()
 
+            val boundary = boundaryRepository?.getBoundaryForZone(name)
+
             FestivalZone(
                 name = name,
                 description = descriptions[name] ?: "Durga Puja festival zone",
                 pandals = list,
                 centerLat = avgLat,
                 centerLng = avgLng,
-                bounds = bounds
+                bounds = bounds,
+                boundary = boundary
             )
         }.sortedByDescending { it.count }
     }

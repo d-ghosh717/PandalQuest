@@ -174,5 +174,208 @@ class SearchAndHoppingTest {
         val normalizedNames = pandals.map { it.name.trim().lowercase() }
         assertEquals(normalizedNames.size, normalizedNames.toSet().size)
     }
+
+    // ── 4. Area Search Accuracy & Canonical Geographic Classification ──
+
+    @Test
+    fun testHowrahSearch_ExcludesKidderporeAndBehalaPandals() {
+        val repo = PandalRepository()
+        val howrahPandals = repo.search("Howrah", null)
+
+        assertTrue("Howrah search must return matching pandals", howrahPandals.isNotEmpty())
+
+        // Howrah search MUST include real Howrah pandals
+        assertTrue(
+            "Howrah search must include Ghas Bagan (Salkia)",
+            howrahPandals.any { it.name.contains("Ghas Bagan", ignoreCase = true) }
+        )
+        assertTrue(
+            "Howrah search must include Kamardanga",
+            howrahPandals.any { it.name.contains("Kamardanga", ignoreCase = true) }
+        )
+        assertTrue(
+            "Howrah search must include Santragachi",
+            howrahPandals.any { it.name.contains("Santragachi", ignoreCase = true) }
+        )
+
+        // Howrah search MUST NOT include Kidderpore or Behala pandals (which are in South Kolkata)
+        assertFalse(
+            "Howrah search MUST NOT include Udayan Kidderpore",
+            howrahPandals.any { it.name.contains("Udayan Kidderpore", ignoreCase = true) }
+        )
+        assertFalse(
+            "Howrah search MUST NOT include Khidderpore Pally Saradiya",
+            howrahPandals.any { it.name.contains("Khidderpore Pally Saradiya", ignoreCase = true) }
+        )
+        assertFalse(
+            "Howrah search MUST NOT include 25 Palli",
+            howrahPandals.any { it.name.contains("25 Palli", ignoreCase = true) }
+        )
+        assertFalse(
+            "Howrah search MUST NOT include Behala pandals",
+            howrahPandals.any { it.name.contains("Behala", ignoreCase = true) }
+        )
+    }
+
+    @Test
+    fun testSouthKolkataSearch_IncludesKidderporeAndBehalaPandals() {
+        val repo = PandalRepository()
+        val southPandals = repo.search("South Kolkata", null)
+
+        assertTrue("South Kolkata search must return pandals", southPandals.isNotEmpty())
+
+        // South Kolkata search must include Kidderpore and Behala pandals
+        assertTrue(
+            "South Kolkata must include Udayan Kidderpore",
+            southPandals.any { it.name.contains("Udayan Kidderpore", ignoreCase = true) }
+        )
+        assertTrue(
+            "South Kolkata must include Behala Nutan Dal",
+            southPandals.any { it.name.contains("Behala Nutan Dal", ignoreCase = true) }
+        )
+
+        // South Kolkata MUST NOT include Howrah pandals
+        assertFalse(
+            "South Kolkata must not include Kamardanga Howrah",
+            southPandals.any { it.name.contains("Kamardanga", ignoreCase = true) }
+        )
+        assertFalse(
+            "South Kolkata must not include Santragachi Kalpataru",
+            southPandals.any { it.name.contains("Santragachi", ignoreCase = true) }
+        )
+    }
+
+    // ── 5. Area Boundary Resolution & Pandal-Name Boundary Exclusion ──
+
+    @Test
+    fun testAreaBoundaryLookup_ResolvesRecognizedGeographicAreas() {
+        val boundaryRepo = com.pandalfinder.data.AreaBoundaryRepository()
+
+        // 1. Howrah boundary
+        val howrahBoundary = boundaryRepo.findBoundaryForQuery("howrah")
+        assertNotNull("Recognized 'howrah' query must resolve to an AreaBoundary", howrahBoundary)
+        assertEquals("Howrah", howrahBoundary!!.name)
+        assertTrue("Howrah boundary is official administrative", howrahBoundary.isOfficialAdministrative)
+        assertEquals("OFFICIAL_ADMINISTRATIVE", howrahBoundary.boundaryType)
+        assertTrue("Howrah polygon must have verified vertices", howrahBoundary.outerRing.size >= 10)
+
+        // 2. South Kolkata boundary
+        val southBoundary = boundaryRepo.findBoundaryForQuery("south kolkata")
+        assertNotNull("Recognized 'south kolkata' query must resolve to an AreaBoundary", southBoundary)
+        assertEquals("South Kolkata", southBoundary!!.name)
+        assertEquals("REGIONAL_ZONE", southBoundary.boundaryType)
+
+        // 3. Salt Lake boundary
+        val saltLakeBoundary = boundaryRepo.findBoundaryForQuery("salt lake")
+        assertNotNull("Recognized 'salt lake' query must resolve to an AreaBoundary", saltLakeBoundary)
+        assertEquals("Salt Lake & East Kolkata", saltLakeBoundary!!.name)
+    }
+
+    @Test
+    fun testAreaBoundaryLookup_PandalNameSearchesDoNotTriggerBoundaries() {
+        val boundaryRepo = com.pandalfinder.data.AreaBoundaryRepository()
+
+        // Pandal names MUST NEVER resolve to an AreaBoundary
+        assertNull(
+            "Pandal name 'Kumartuli Park' must NOT trigger an area boundary",
+            boundaryRepo.findBoundaryForQuery("Kumartuli Park")
+        )
+        assertNull(
+            "Pandal name 'Ghas Bagan' must NOT trigger an area boundary",
+            boundaryRepo.findBoundaryForQuery("Ghas Bagan")
+        )
+        assertNull(
+            "Pandal name 'Udayan Kidderpore' must NOT trigger an area boundary",
+            boundaryRepo.findBoundaryForQuery("Udayan Kidderpore")
+        )
+        assertNull(
+            "Pandal name 'Suruchi Sangha' must NOT trigger an area boundary",
+            boundaryRepo.findBoundaryForQuery("Suruchi Sangha")
+        )
+        assertNull(
+            "Pandal name 'Maddox Square' must NOT trigger an area boundary",
+            boundaryRepo.findBoundaryForQuery("Maddox Square")
+        )
+
+        // Arbitrary unrecognized queries must return null
+        assertNull(boundaryRepo.findBoundaryForQuery("xyzabc123"))
+        assertNull(boundaryRepo.findBoundaryForQuery(""))
+    }
+
+    // ── 6. Independent Category Filtering in searchAll ──
+
+    @Test
+    fun testIndependentCategoryFilteringInSearchAll() {
+        val repo = PandalRepository()
+        val sampleToilet = com.pandalfinder.data.PublicToilet(
+            id = "toilet_howrah_station",
+            name = "Howrah Station Toilet",
+            address = "Howrah Railway Station, Howrah",
+            latitude = 22.5840,
+            longitude = 88.3420
+        )
+        val toilets = listOf(sampleToilet)
+
+        // 1. All filters ON: returns pandals, metro, and toilets
+        val allResults = repo.searchAll(
+            query = "Howrah",
+            location = null,
+            toilets = toilets,
+            includePandals = true,
+            includeMetro = true,
+            includeToilets = true
+        )
+        assertTrue(allResults.any { it.type == PlaceType.PANDAL })
+        assertTrue(allResults.any { it.type == PlaceType.METRO })
+        assertTrue(allResults.any { it.type == PlaceType.TOILET })
+
+        // 2. Pandals ONLY filter
+        val pandalsOnly = repo.searchAll(
+            query = "Howrah",
+            location = null,
+            toilets = toilets,
+            includePandals = true,
+            includeMetro = false,
+            includeToilets = false
+        )
+        assertTrue(pandalsOnly.all { it.type == PlaceType.PANDAL })
+        assertFalse(pandalsOnly.any { it.type == PlaceType.METRO })
+        assertFalse(pandalsOnly.any { it.type == PlaceType.TOILET })
+
+        // 3. Metro ONLY filter
+        val metroOnly = repo.searchAll(
+            query = "Howrah",
+            location = null,
+            toilets = toilets,
+            includePandals = false,
+            includeMetro = true,
+            includeToilets = false
+        )
+        assertTrue(metroOnly.all { it.type == PlaceType.METRO })
+        assertFalse(metroOnly.any { it.type == PlaceType.PANDAL })
+        assertFalse(metroOnly.any { it.type == PlaceType.TOILET })
+
+        // 4. Toilets ONLY filter
+        val toiletsOnly = repo.searchAll(
+            query = "Howrah",
+            location = null,
+            toilets = toilets,
+            includePandals = false,
+            includeMetro = false,
+            includeToilets = true
+        )
+        assertTrue(toiletsOnly.all { it.type == PlaceType.TOILET })
+        assertFalse(toiletsOnly.any { it.type == PlaceType.PANDAL })
+        assertFalse(toiletsOnly.any { it.type == PlaceType.METRO })
+
+        // 5. Verification that metro and toilets are never counted as pandals
+        val pandalCount = allResults.count { it.type == PlaceType.PANDAL }
+        val metroCount = allResults.count { it.type == PlaceType.METRO }
+        val toiletCount = allResults.count { it.type == PlaceType.TOILET }
+        assertEquals(allResults.size, pandalCount + metroCount + toiletCount)
+        assertTrue(pandalCount > 0)
+        assertTrue(metroCount > 0)
+        assertTrue(toiletCount > 0)
+    }
 }
 

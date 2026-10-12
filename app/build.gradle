@@ -28,8 +28,8 @@ android {
         applicationId "com.pandalfinder"
         minSdk 24
         targetSdk 33
-        versionCode 5
-        versionName "2.1.1"
+        versionCode 6
+        versionName "2.1.2"
         buildConfigField "String", "GOOGLE_ROUTES_API_KEY", "\"${routesApiKey.replace('\\', '\\\\').replace('\"', '\\\"')}\""
         buildConfigField "String", "ORS_API_KEY", "\"${orsApiKey.replace('\\', '\\\\').replace('\"', '\\\"')}\""
         buildConfigField "String", "SUPABASE_URL", "\"${supabaseUrl.replace('\\', '\\\\').replace('\"', '\\\"')}\""

@@ -35,6 +35,12 @@ data class UserTelemetryRecord(
     val appVersion: String
 )
 
+data class PresenceSessionData(
+    val online: Boolean = false,
+    val lastSeenMillis: Long = 0L,
+    val appVersion: String = ""
+)
+
 /**
  * Manages user registration telemetry, live RTDB presence, and administrative analytics.
  *
@@ -43,6 +49,7 @@ data class UserTelemetryRecord(
  * 2. Scoped strictly to Firebase Anonymous UIDs.
  * 3. Daily boundaries calculated using Indian Standard Time (Asia/Kolkata, UTC+05:30).
  * 4. Presence handles multiple concurrent sessions per UID without double-counting.
+ * 5. Foreground heartbeat with 150s (2.5 min) TTL prevents stale records from counting indefinitely.
  */
 class UserAnalyticsRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
@@ -57,6 +64,21 @@ class UserAnalyticsRepository(
     private var activeUid: String? = null
     private var connectedListener: ValueEventListener? = null
     private var connectedRef: com.google.firebase.database.DatabaseReference? = null
+    private var serverTimeOffsetMillis: Long = 0L
+
+    private val heartbeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var heartbeatRunnable: Runnable? = null
+
+    init {
+        try {
+            database.getReference(".info/serverTimeOffset").addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    serverTimeOffsetMillis = snapshot.getValue(Long::class.java) ?: 0L
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        } catch (_: Exception) {}
+    }
 
     /**
      * Registers a user launch in Firestore (`users/{uid}`).
@@ -109,7 +131,7 @@ class UserAnalyticsRepository(
 
     /**
      * Starts a live session in Firebase Realtime Database at `/presence/{uid}/{sessionId}`.
-     * Sets up `.info/connected` listening and `onDisconnect().removeValue()`.
+     * Sets up `.info/connected` listening, `onDisconnect().removeValue()`, and foreground heartbeat.
      */
     fun startPresenceSession(uid: String, appVersion: String) {
         if (uid.isBlank()) return
@@ -140,7 +162,10 @@ class UserAnalyticsRepository(
                             "appVersion" to appVersion
                         )
                         presenceRef.setValue(sessionPayload)
+                        startHeartbeat(presenceRef)
                         Log.d(TAG, "Live presence registered for ${uid.take(6)}... [session $sessionId]")
+                    } else {
+                        stopHeartbeat()
                     }
                 }
 
@@ -156,10 +181,34 @@ class UserAnalyticsRepository(
         }
     }
 
+    private fun startHeartbeat(presenceRef: com.google.firebase.database.DatabaseReference) {
+        stopHeartbeat()
+        val runnable = object : Runnable {
+            override fun run() {
+                val updates = hashMapOf<String, Any>(
+                    "online" to true,
+                    "lastSeen" to ServerValue.TIMESTAMP
+                )
+                presenceRef.updateChildren(updates).addOnFailureListener { e ->
+                    Log.w(TAG, "Presence heartbeat failed: ${e.message}")
+                }
+                heartbeatHandler.postDelayed(this, HEARTBEAT_INTERVAL_MS)
+            }
+        }
+        heartbeatRunnable = runnable
+        heartbeatHandler.postDelayed(runnable, HEARTBEAT_INTERVAL_MS)
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatRunnable?.let { heartbeatHandler.removeCallbacks(it) }
+        heartbeatRunnable = null
+    }
+
     /**
      * Cleans up the active presence session when the app is backgrounded or destroyed.
      */
     fun stopPresenceSession() {
+        stopHeartbeat()
         val uid = activeUid
         val sessionId = activeSessionId
 
@@ -184,7 +233,8 @@ class UserAnalyticsRepository(
 
     /**
      * Admin-only real-time listener for current live users.
-     * Correctly handles multiple devices/sessions for the same UID by counting unique user keys.
+     * Correctly handles multiple devices/sessions for the same UID by counting unique user keys,
+     * while filtering out stale or offline records.
      *
      * @return A cleanup function that removes the listener when the admin view is closed.
      */
@@ -195,7 +245,8 @@ class UserAnalyticsRepository(
         val presenceRef = database.getReference(PRESENCE_PATH)
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val uniqueLiveUsers = countUniqueLiveUsers(snapshot)
+                val estimatedServerNow = System.currentTimeMillis() + serverTimeOffsetMillis
+                val uniqueLiveUsers = countUniqueLiveUsers(snapshot, estimatedServerNow, STALE_SESSION_THRESHOLD_MS)
                 onLiveCountChanged(uniqueLiveUsers)
             }
 
@@ -248,6 +299,19 @@ class UserAnalyticsRepository(
         const val USERS_COLLECTION = "users"
         const val PRESENCE_PATH = "presence"
 
+        /**
+         * Stale session expiry threshold (2.5 minutes).
+         * Trade-off rationale: Absorbs momentary network drops or metro blackouts (15-45s)
+         * without false-dropping active users, while ensuring dead or crashed sessions
+         * are completely excluded within 2.5 minutes.
+         */
+        const val STALE_SESSION_THRESHOLD_MS: Long = 150_000L
+
+        /**
+         * Foreground heartbeat interval (60 seconds).
+         */
+        const val HEARTBEAT_INTERVAL_MS: Long = 60_000L
+
         val KOLKATA_TIMEZONE: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
         /**
@@ -264,17 +328,54 @@ class UserAnalyticsRepository(
         }
 
         /**
-         * Pure calculation function: counts unique UIDs with active sessions from RTDB data snapshot.
+         * Counts unique UIDs with at least one valid, non-stale foreground session from RTDB.
+         * Multi-device and multi-session instances of the same UID are counted exactly once.
          */
-        fun countUniqueLiveUsers(snapshot: DataSnapshot): Int {
-            var count = 0
+        fun countUniqueLiveUsers(
+            snapshot: DataSnapshot,
+            currentTimeMillis: Long = System.currentTimeMillis(),
+            staleThresholdMillis: Long = STALE_SESSION_THRESHOLD_MS
+        ): Int {
+            var uniqueCount = 0
             for (userChild in snapshot.children) {
                 // Each userChild key is a distinct UID
-                if (userChild.hasChildren()) {
-                    count++
+                var hasActiveForegroundSession = false
+                for (sessionChild in userChild.children) {
+                    val isOnline = sessionChild.child("online").getValue(Boolean::class.java) ?: false
+                    val lastSeen = sessionChild.child("lastSeen").getValue(Long::class.java) ?: 0L
+                    val isFresh = lastSeen > 0L && (currentTimeMillis - lastSeen) in 0..staleThresholdMillis
+                    if (isOnline && isFresh) {
+                        hasActiveForegroundSession = true
+                        break // Deduplicate multiple devices/sessions for this user
+                    }
+                }
+                if (hasActiveForegroundSession) {
+                    uniqueCount++
                 }
             }
-            return count
+            return uniqueCount
+        }
+
+        /**
+         * Pure calculation function for unit tests: counts unique live users from in-memory session map.
+         */
+        fun countUniqueLiveUsersFromSessions(
+            userSessions: Map<String, List<PresenceSessionData>>,
+            currentTimeMillis: Long,
+            staleThresholdMillis: Long = STALE_SESSION_THRESHOLD_MS
+        ): Int {
+            var uniqueCount = 0
+            for ((_, sessions) in userSessions) {
+                val hasActive = sessions.any { session ->
+                    session.online &&
+                    session.lastSeenMillis > 0L &&
+                    (currentTimeMillis - session.lastSeenMillis) in 0..staleThresholdMillis
+                }
+                if (hasActive) {
+                    uniqueCount++
+                }
+            }
+            return uniqueCount
         }
 
         /**

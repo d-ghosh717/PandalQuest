@@ -39,10 +39,7 @@ data class SemanticVersion(
         fun parse(versionStr: String?): SemanticVersion? {
             if (versionStr.isNullOrBlank()) return null
             val clean = versionStr.trim()
-                .removePrefix("PandalQuest")
-                .trim()
-                .removePrefix("v")
-                .removePrefix("V")
+                .replaceFirst(Regex("""^[^\d]+"""), "")
                 .trim()
             val match = Regex("""^(\d+)(?:\.(\d+))?(?:\.(\d+))?""").find(clean) ?: return null
             val major = match.groupValues[1].toIntOrNull() ?: 0
@@ -235,6 +232,12 @@ class AppUpdateRepository(
             parseSingleRelease(obj)?.let { releases.add(it) }
         }
 
+        // Sort descending by versionCode, then semantic version, so the newest stable release is first
+        releases.sortWith(
+            compareByDescending<AppReleaseInfo> { it.versionCode }
+                .thenByDescending { SemanticVersion.parse(it.versionName) }
+        )
+
         return releases
     }
 
@@ -426,6 +429,7 @@ class AppUpdateRepository(
      */
     private fun mapKnownVersionCode(versionName: String): Int? {
         return when (versionName) {
+            "2.1.2" -> 6
             "2.1.1" -> 5
             "2.1.0" -> 4
             "2.0.0" -> 2

@@ -140,6 +140,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rainReportRepo: RainReportRepository
     private lateinit var userAnalyticsRepo: UserAnalyticsRepository
     private lateinit var appUpdateRepo: AppUpdateRepository
+    private lateinit var areaBoundaryRepo: AreaBoundaryRepository
+    private var currentAreaBoundaryId: String? = null
+    private var selectedFestivalZone: FestivalZone? = null
     private var isResolvingLocationSettings = false
     private var lastLocationPromptTime = 0L
 
@@ -635,6 +638,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // Initialize Data Repositories
+        areaBoundaryRepo = AreaBoundaryRepository.getInstance(this)
         pandals = PandalRepository(this)
         weather = WeatherRepository()
         weatherReports = WeatherReportRepository()
@@ -646,7 +650,7 @@ class MainActivity : AppCompatActivity() {
         eligibility = ContributionEligibility(this)
         favorites = FavoritesRepository(this)
         passport = PassportRepository(this)
-        zones = FestivalZoneRepository(pandals)
+        zones = FestivalZoneRepository(pandals, areaBoundaryRepo)
         alerts = FestivalAlertRepository()
         networkMonitor = NetworkMonitor(this)
         photos = PhotoRepository()
@@ -889,6 +893,13 @@ class MainActivity : AppCompatActivity() {
             }
             readyMap.setStyle("https://tiles.openfreemap.org/styles/liberty") {
                 applyCurrentFilters()
+                val activeQuery = searchInput.text?.toString()?.trim().orEmpty()
+                if (activeQuery.isNotBlank()) {
+                    val boundary = areaBoundaryRepo.findBoundaryForQuery(activeQuery)
+                    if (boundary != null) {
+                        showAreaBoundary(boundary)
+                    }
+                }
             }
         }
 
@@ -897,57 +908,216 @@ class MainActivity : AppCompatActivity() {
             if (query.isBlank()) {
                 results.visibility = View.GONE
                 searchEmptyView.visibility = View.GONE
-            } else {
-                val matching = pandals.searchAll(query, location, places.cachedToilets).take(10)
-                if (matching.isEmpty()) {
-                    results.visibility = View.GONE
-                    searchEmptyView.visibility = View.VISIBLE
+                val activeZoneBoundary = selectedFestivalZone?.boundary
+                    ?: selectedFestivalZone?.let { areaBoundaryRepo.getBoundaryForZone(it.name) }
+                if (activeZoneBoundary != null) {
+                    showAreaBoundary(activeZoneBoundary)
                 } else {
-                    searchEmptyView.visibility = View.GONE
-                    results.visibility = View.VISIBLE
-                    results.adapter = SearchResultAdapter(matching) { result ->
-                        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                        imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+                    removeAreaBoundary()
+                }
+                updateNearbyStatusCard()
+            } else {
+                val areaMatch = areaBoundaryRepo.findBoundaryForQuery(query)
+                if (areaMatch != null) {
+                    showAreaBoundary(areaMatch)
+                } else {
+                    removeAreaBoundary()
+                }
+                performSearchAndDisplay(query)
+            }
+        }
+    }
 
-                        searchInput.setText("")
-                        searchInput.clearFocus()
-                        results.visibility = View.GONE
-                        searchEmptyView.visibility = View.GONE
+    private fun performSearchAndDisplay(query: String) {
+        val matching = pandals.searchAll(
+            query = query,
+            location = location,
+            toilets = places.cachedToilets,
+            includePandals = filterShowPandals,
+            includeMetro = filterShowMetro,
+            includeToilets = filterShowToilets
+        ).take(10)
 
-                        if (!isValidCoordinate(result.latitude, result.longitude)) {
-                            Log.w(TAG, "Search result has invalid coordinates: ${result.name}")
-                            Toast.makeText(this, "Coordinates unavailable for ${result.name}", Toast.LENGTH_SHORT).show()
-                            return@SearchResultAdapter
-                        }
+        if (matching.isEmpty()) {
+            results.visibility = View.GONE
+            searchEmptyView.visibility = View.VISIBLE
+            statusTitle.text = "No places found"
+            statusMessage.text = "Try searching for another pandal, metro station, or area"
+            if (metroCard.visibility != View.VISIBLE && toiletCard.visibility != View.VISIBLE) {
+                statusCard.visibility = View.VISIBLE
+            }
+        } else {
+            searchEmptyView.visibility = View.GONE
+            results.visibility = View.VISIBLE
+            results.adapter = SearchResultAdapter(matching) { result ->
+                onSearchResultSelected(result)
+            }
 
-                        when (result.type) {
-                            PlaceType.PANDAL -> {
-                                val p = result.pandal ?: pandals.all().firstOrNull { it.id == result.id.removePrefix("pandal:") }
-                                if (p != null) {
-                                    focusPandal(p)
-                                    showDetail(p)
-                                }
-                            }
-                            PlaceType.METRO -> {
-                                val s = result.metroStation ?: MetroStation.allStations().firstOrNull {
-                                    it.name.equals(result.name, ignoreCase = true)
-                                }
-                                if (s != null) {
-                                    focusMetro(s)
-                                    showMetroCard(s)
-                                }
-                            }
-                            PlaceType.TOILET -> {
-                                val t = result.toilet ?: shownToilets.firstOrNull { it.id == result.id.removePrefix("toilet:") }
-                                if (t != null) {
-                                    focusToilet(t)
-                                    showToiletCard(t)
-                                }
-                            }
-                        }
-                    }
+            val matchingPandals = matching.count { it.type == PlaceType.PANDAL }
+            if (matchingPandals > 0) {
+                statusTitle.text = if (matchingPandals == 1) "1 pandal found" else "$matchingPandals pandals found"
+                statusMessage.text = "Tap a result to view on map or get directions"
+            } else {
+                statusTitle.text = "${matching.size} place${if (matching.size == 1) "" else "s"} found"
+                statusMessage.text = "Tap a result to view on map or get directions"
+            }
+            if (metroCard.visibility != View.VISIBLE && toiletCard.visibility != View.VISIBLE) {
+                statusCard.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun onSearchResultSelected(result: SearchResult) {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(searchInput.windowToken, 0)
+
+        searchInput.setText("")
+        searchInput.clearFocus()
+        results.visibility = View.GONE
+        searchEmptyView.visibility = View.GONE
+        if (selectedFestivalZone != null) {
+            selectedFestivalZone = null
+            updateFilterPillStyles()
+        }
+        removeAreaBoundary()
+
+        if (!isValidCoordinate(result.latitude, result.longitude)) {
+            Log.w(TAG, "Search result has invalid coordinates: ${result.name}")
+            Toast.makeText(this, "Coordinates unavailable for ${result.name}", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        when (result.type) {
+            PlaceType.PANDAL -> {
+                val p = result.pandal ?: pandals.all().firstOrNull { it.id == result.id.removePrefix("pandal:") }
+                if (p != null) {
+                    focusPandal(p)
+                    showDetail(p)
                 }
             }
+            PlaceType.METRO -> {
+                val s = result.metroStation ?: MetroStation.allStations().firstOrNull {
+                    it.name.equals(result.name, ignoreCase = true)
+                }
+                if (s != null) {
+                    focusMetro(s)
+                    showMetroCard(s)
+                }
+            }
+            PlaceType.TOILET -> {
+                val t = result.toilet ?: shownToilets.firstOrNull { it.id == result.id.removePrefix("toilet:") }
+                if (t != null) {
+                    focusToilet(t)
+                    showToiletCard(t)
+                }
+            }
+        }
+    }
+
+    private fun updateNearbyStatusCard() {
+        if (searchInput.text?.isNotBlank() == true) {
+            performSearchAndDisplay(searchInput.text.toString().trim())
+            return
+        }
+        val loc = location
+        if (loc == null || !isValidCoordinate(loc.latitude, loc.longitude)) {
+            return
+        }
+        if (filterShowPandals) {
+            val within3km = pandals.nearby(loc).filter { it.distanceMeters <= 3000f }
+            if (within3km.isEmpty()) {
+                statusTitle.text = getString(R.string.location_none_nearby)
+                statusMessage.text = getString(R.string.location_none_nearby_body, pandals.all().size)
+            } else if (within3km.size == 1) {
+                statusTitle.text = getString(R.string.location_found_one)
+                statusMessage.text = getString(R.string.location_tap)
+            } else {
+                statusTitle.text = getString(R.string.location_found, within3km.size)
+                statusMessage.text = getString(R.string.location_tap)
+            }
+            if (metroCard.visibility != View.VISIBLE && toiletCard.visibility != View.VISIBLE) {
+                statusCard.visibility = View.VISIBLE
+            }
+        } else if (filterShowMetro) {
+            statusTitle.text = "Metro stations visible"
+            statusMessage.text = "Tap any metro station on the map to view line info"
+            statusCard.visibility = View.VISIBLE
+        } else if (filterShowToilets) {
+            statusTitle.text = "Public toilets visible"
+            statusMessage.text = "Tap any toilet on the map to view directions"
+            statusCard.visibility = View.VISIBLE
+        } else {
+            statusCard.visibility = View.GONE
+        }
+    }
+
+    private fun showAreaBoundary(boundary: AreaBoundary) {
+        if (currentAreaBoundaryId == boundary.id) {
+            return
+        }
+        currentAreaBoundaryId = boundary.id
+
+        map?.getStyle { style ->
+            try {
+                removeAreaBoundaryFromStyle(style)
+
+                val source = org.maplibre.android.style.sources.GeoJsonSource(
+                    AREA_BOUNDARY_SOURCE_ID,
+                    boundary.geoJsonString
+                )
+                style.addSource(source)
+
+                val fillLayer = org.maplibre.android.style.layers.FillLayer(
+                    AREA_BOUNDARY_FILL_LAYER_ID,
+                    AREA_BOUNDARY_SOURCE_ID
+                ).withProperties(
+                    org.maplibre.android.style.layers.PropertyFactory.fillColor(Color.parseColor("#E53935")),
+                    org.maplibre.android.style.layers.PropertyFactory.fillOpacity(0.12f)
+                )
+                style.addLayer(fillLayer)
+
+                val lineLayer = org.maplibre.android.style.layers.LineLayer(
+                    AREA_BOUNDARY_LINE_LAYER_ID,
+                    AREA_BOUNDARY_SOURCE_ID
+                ).withProperties(
+                    org.maplibre.android.style.layers.PropertyFactory.lineColor(Color.parseColor("#E53935")),
+                    org.maplibre.android.style.layers.PropertyFactory.lineWidth(2.5f),
+                    org.maplibre.android.style.layers.PropertyFactory.lineCap(org.maplibre.android.style.layers.Property.LINE_CAP_ROUND),
+                    org.maplibre.android.style.layers.PropertyFactory.lineJoin(org.maplibre.android.style.layers.Property.LINE_JOIN_ROUND)
+                )
+                style.addLayer(lineLayer)
+
+                val bounds = boundary.toMapLibreBounds()
+                map?.animateCamera(
+                    org.maplibre.android.camera.CameraUpdateFactory.newLatLngBounds(bounds, 130),
+                    800
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Error displaying area boundary for ${boundary.name}: ${e.message}")
+            }
+        }
+    }
+
+    private fun removeAreaBoundary() {
+        currentAreaBoundaryId = null
+        map?.getStyle { style ->
+            removeAreaBoundaryFromStyle(style)
+        }
+    }
+
+    private fun removeAreaBoundaryFromStyle(style: org.maplibre.android.maps.Style) {
+        try {
+            if (style.getLayer(AREA_BOUNDARY_LINE_LAYER_ID) != null) {
+                style.removeLayer(AREA_BOUNDARY_LINE_LAYER_ID)
+            }
+            if (style.getLayer(AREA_BOUNDARY_FILL_LAYER_ID) != null) {
+                style.removeLayer(AREA_BOUNDARY_FILL_LAYER_ID)
+            }
+            if (style.getSource(AREA_BOUNDARY_SOURCE_ID) != null) {
+                style.removeSource(AREA_BOUNDARY_SOURCE_ID)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error removing area boundary: ${e.message}")
         }
     }
 
@@ -956,11 +1126,21 @@ class MainActivity : AppCompatActivity() {
             filterShowPandals = !filterShowPandals
             updateFilterPillStyles()
             applyCurrentFilters()
+            if (searchInput.text?.isNotBlank() == true) {
+                performSearchAndDisplay(searchInput.text.toString().trim())
+            } else {
+                updateNearbyStatusCard()
+            }
         }
         metroFilterButton.setOnClickListener {
             filterShowMetro = !filterShowMetro
             updateFilterPillStyles()
             applyCurrentFilters()
+            if (searchInput.text?.isNotBlank() == true) {
+                performSearchAndDisplay(searchInput.text.toString().trim())
+            } else {
+                updateNearbyStatusCard()
+            }
         }
         toiletsFilterButton.setOnClickListener {
             filterShowToilets = !filterShowToilets
@@ -974,6 +1154,11 @@ class MainActivity : AppCompatActivity() {
             } else {
                 shownToilets = emptyList()
                 applyCurrentFilters()
+            }
+            if (searchInput.text?.isNotBlank() == true) {
+                performSearchAndDisplay(searchInput.text.toString().trim())
+            } else {
+                updateNearbyStatusCard()
             }
         }
 
@@ -1144,11 +1329,21 @@ class MainActivity : AppCompatActivity() {
             toiletsFilterButton.strokeWidth = 0
         }
 
-        zonesFilterButton.setBackgroundResource(R.drawable.bg_filter_pill_inactive)
-        zonesFilterButton.backgroundTintList = null
-        zonesFilterButton.setTextColor(textPrimary)
-        zonesFilterButton.iconTint = ContextCompat.getColorStateList(this, R.color.secondary)
-        zonesFilterButton.strokeWidth = 0
+        if (selectedFestivalZone != null) {
+            zonesFilterButton.text = selectedFestivalZone!!.name
+            zonesFilterButton.setBackgroundResource(R.drawable.bg_filter_pill_zones_active)
+            zonesFilterButton.backgroundTintList = null
+            zonesFilterButton.setTextColor(onPrimaryText)
+            zonesFilterButton.iconTint = ContextCompat.getColorStateList(this, R.color.on_primary)
+            zonesFilterButton.strokeWidth = 0
+        } else {
+            zonesFilterButton.text = "Zones"
+            zonesFilterButton.setBackgroundResource(R.drawable.bg_filter_pill_inactive)
+            zonesFilterButton.backgroundTintList = null
+            zonesFilterButton.setTextColor(textPrimary)
+            zonesFilterButton.iconTint = ContextCompat.getColorStateList(this, R.color.secondary)
+            zonesFilterButton.strokeWidth = 0
+        }
 
         updateFloatingBadges()
     }
@@ -1667,22 +1862,10 @@ class MainActivity : AppCompatActivity() {
                     val found = result.lastLocation ?: return
                     location = found
 
-                    if (filterShowPandals) {
-                        val nearby = pandals.nearby(found)
-                        val within3km = nearby.filter { it.distanceMeters <= 3000f }
-                        if (within3km.isEmpty()) {
-                            statusTitle.text = getString(R.string.location_none_nearby)
-                            statusMessage.text = getString(R.string.location_none_nearby_body, pandals.all().size)
-                        } else if (within3km.size == 1) {
-                            statusTitle.text = getString(R.string.location_found_one)
-                            statusMessage.text = getString(R.string.location_tap)
-                        } else {
-                            statusTitle.text = getString(R.string.location_found, within3km.size)
-                            statusMessage.text = getString(R.string.location_tap)
-                        }
-                        if (metroCard.visibility != View.VISIBLE && toiletCard.visibility != View.VISIBLE) {
-                            statusCard.visibility = View.VISIBLE
-                        }
+                    if (searchInput.text?.isNotBlank() == true) {
+                        performSearchAndDisplay(searchInput.text.toString().trim())
+                    } else {
+                        updateNearbyStatusCard()
                     }
 
                     applyCurrentFilters()
@@ -4043,22 +4226,31 @@ class MainActivity : AppCompatActivity() {
 
         view.findViewById<View>(R.id.closeZonesSheet).setOnClickListener { sheet.dismiss() }
 
+        val activeBanner = view.findViewById<View>(R.id.activeZoneBanner)
+        val activeName = view.findViewById<TextView>(R.id.activeZoneBannerName)
+        val btnClearZone = view.findViewById<MaterialButton>(R.id.btnClearZoneSelection)
+
+        if (selectedFestivalZone != null) {
+            activeBanner?.visibility = View.VISIBLE
+            activeName?.text = selectedFestivalZone!!.name
+            btnClearZone?.setOnClickListener {
+                sheet.dismiss()
+                clearSelectedZone()
+            }
+        } else {
+            activeBanner?.visibility = View.GONE
+        }
+
         val rv = view.findViewById<RecyclerView>(R.id.zonesRecyclerView)
         rv.layoutManager = LinearLayoutManager(this)
 
         val zoneList = zones.getZones()
         rv.adapter = FestivalZoneAdapter(
             zoneList,
+            selectedZoneName = selectedFestivalZone?.name,
             onExplore = { zone ->
                 sheet.dismiss()
-                filterShowPandals = true
-                updateFilterPillStyles()
-                applyCurrentFilters()
-                map?.cameraPosition = CameraPosition.Builder()
-                    .target(LatLng(zone.centerLat, zone.centerLng))
-                    .zoom(13.5)
-                    .build()
-                Toast.makeText(this, "Exploring ${zone.name}", Toast.LENGTH_SHORT).show()
+                selectZone(zone)
             },
             onAddToHopping = { zone ->
                 val topPandals = zone.pandals.take(4)
@@ -4071,6 +4263,59 @@ class MainActivity : AppCompatActivity() {
         )
 
         sheet.show()
+    }
+
+    private fun selectZone(zone: FestivalZone) {
+        selectedFestivalZone = zone
+        filterShowPandals = true
+        updateFilterPillStyles()
+        applyCurrentFilters()
+
+        val boundary = zone.boundary ?: areaBoundaryRepo.getBoundaryForZone(zone.name)
+        if (boundary != null) {
+            showAreaBoundary(boundary)
+            Toast.makeText(this, "Exploring ${zone.name}", Toast.LENGTH_SHORT).show()
+        } else {
+            // Boundary unavailable: Never guess circles or rectangles
+            removeAreaBoundary()
+            val bounds = zone.bounds
+            map?.animateCamera(
+                org.maplibre.android.camera.CameraUpdateFactory.newLatLngBounds(bounds, 130),
+                800
+            )
+            Toast.makeText(
+                this,
+                "Official boundary unavailable for ${zone.name}. Showing zone location.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun clearSelectedZone() {
+        selectedFestivalZone = null
+        removeAreaBoundary()
+        updateFilterPillStyles()
+        applyCurrentFilters()
+
+        val loc = location
+        if (loc != null) {
+            map?.animateCamera(
+                org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(
+                    org.maplibre.android.geometry.LatLng(loc.latitude, loc.longitude),
+                    13.0
+                ),
+                600
+            )
+        } else {
+            map?.animateCamera(
+                org.maplibre.android.camera.CameraUpdateFactory.newLatLngZoom(
+                    org.maplibre.android.geometry.LatLng(22.5726, 88.3639),
+                    12.0
+                ),
+                600
+            )
+        }
+        Toast.makeText(this, "Returned to normal map view", Toast.LENGTH_SHORT).show()
     }
 
     // ────────────────────────────────────────────────────────
@@ -4364,6 +4609,9 @@ class MainActivity : AppCompatActivity() {
         const val KEY_HAS_REQUESTED_LOCATION_PERMISSION = "has_requested_location_permission"
         const val REQUEST_LOCATION = 1001
         const val REQUEST_CHECK_SETTINGS = 1002
+        const val AREA_BOUNDARY_SOURCE_ID = "pandalquest-area-boundary-source"
+        const val AREA_BOUNDARY_FILL_LAYER_ID = "pandalquest-area-boundary-fill"
+        const val AREA_BOUNDARY_LINE_LAYER_ID = "pandalquest-area-boundary-line"
 
         fun checkPermanentDenial(
             hasPermission: Boolean,
@@ -4567,6 +4815,7 @@ private class PassportRecordAdapter(
 
 private class FestivalZoneAdapter(
     private val items: List<FestivalZone>,
+    private val selectedZoneName: String? = null,
     private val onExplore: (FestivalZone) -> Unit,
     private val onAddToHopping: (FestivalZone) -> Unit
 ) : RecyclerView.Adapter<FestivalZoneAdapter.Holder>() {
@@ -4575,6 +4824,8 @@ private class FestivalZoneAdapter(
         val name: TextView = v.findViewById(R.id.zoneName)
         val countBadge: TextView = v.findViewById(R.id.zoneCountBadge)
         val description: TextView = v.findViewById(R.id.zoneDescription)
+        val boundaryBadge: TextView? = v.findViewById(R.id.zoneBoundaryBadge)
+        val activeBadge: TextView? = v.findViewById(R.id.zoneActiveBadge)
         val btnExplore: MaterialButton = v.findViewById(R.id.btnExploreZone)
         val btnAdd: MaterialButton = v.findViewById(R.id.btnAddZoneToHopping)
     }
@@ -4584,9 +4835,33 @@ private class FestivalZoneAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val item = items[position]
+        val context = holder.itemView.context
         holder.name.text = item.name
         holder.countBadge.text = "${item.count} Pandals"
         holder.description.text = item.description
+
+        if (item.hasBoundary) {
+            val isOfficial = item.boundary?.isOfficialAdministrative == true
+            holder.boundaryBadge?.text = if (isOfficial) "Official Administrative Boundary" else "Verified Regional Boundary"
+            holder.boundaryBadge?.setTextColor(ContextCompat.getColor(context, R.color.secondary))
+            holder.boundaryBadge?.visibility = View.VISIBLE
+        } else {
+            holder.boundaryBadge?.text = "Boundary Outline Unavailable"
+            holder.boundaryBadge?.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+            holder.boundaryBadge?.visibility = View.VISIBLE
+        }
+
+        val isSelected = selectedZoneName != null && item.name.equals(selectedZoneName, ignoreCase = true)
+        if (isSelected) {
+            holder.activeBadge?.visibility = View.VISIBLE
+            holder.btnExplore.text = "Viewing on Map"
+            holder.btnExplore.setIconResource(R.drawable.ic_check_circle)
+        } else {
+            holder.activeBadge?.visibility = View.GONE
+            holder.btnExplore.text = "Explore on Map"
+            holder.btnExplore.setIconResource(R.drawable.ic_map_tab)
+        }
+
         holder.btnExplore.setOnClickListener { onExplore(item) }
         holder.btnAdd.setOnClickListener { onAddToHopping(item) }
     }

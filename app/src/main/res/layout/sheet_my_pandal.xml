@@ -533,7 +533,7 @@
         android:layout_marginBottom="2dp"
         android:gravity="center"
         android:fontFamily="@font/inter"
-        android:text="PandalQuest v2.1.1"
+        android:text="PandalQuest v2.1.2"
         android:textColor="@color/text_tertiary"
         android:textSize="12sp" />
 
